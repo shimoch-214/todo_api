@@ -33,6 +33,7 @@ def create(event, context):
     'phone': user["phone"],
     'createdAt': timestamp,
     'updatedAt': timestamp,
+    'taskIds': [],
     'deleteFlag': False
   }
 
@@ -40,16 +41,11 @@ def create(event, context):
 
   response = {
     'statusCode': 200,
-    'headers': {
-      'Content-Type': 'application/json',
-      'Accept-Charset': 'UTF-8'
-    },
-    'body': {
-      'id': item['id'],
-    }
+    'id': item['id'] 
   }
 
   return json.dumps(response)
+
 
 # validations
 def validate_attributes(user):

@@ -55,30 +55,55 @@ functions:
           response:
             headers:
               Content-Type: "'application/json'"
-            template: $input.path('$')
+            template: $input.path("$")
             statusCodes:
               200:
                 pattern: ''
               400:
                 pattern: '.*"statusCode": 400,.*'
-                template: $input.path("$.errorMessage")
                 headers:
                   Content-Type: "'application/json'"
-
+                template: $input.path("$.errorMessage")
   user_update:
     handler: users/update.update
     events:
       - http:
           path: users/{id}
-          method: patch
+          method: put
+          integration: lambda
           cors: true
+          response:
+            headers:
+              Content-Type: "'application/json'"
+            template: $input.path("$")
+            statusCodes:
+              200:
+                pattern: ''
+              400:
+                pattern: '.*"statusCode": 400,.*'
+                headers:
+                  Content-Type: "'application/json'"
+                template: $input.path("$.errorMessage")
   user_delete:
     handler: users/delete.delete
     events:
       - http:
-          path: users/{id}
-          method: delete
+          path: users/delete/{id}
+          method: patch
+          integration: lambda
           cors: true
+          response:
+            headers:
+              Content-Type: "'application/json'"
+            template: $input.path("$")
+            statusCodes:
+              200:
+                pattern: ''
+              400:
+                pattern: '.*"statusCode": 400,.*'
+                headers:
+                  Content-Type: "'application/json'"
+                template: $input.path("$.errorMessage")
 
 # DynamoDB settings
 resources:
@@ -129,10 +154,16 @@ resources:
           -
             AttributeName: id
             AttributeType: S
+          -
+            AttributeName: deleteFlag
+            AttributeType: B
         KeySchema:
           -
             AttributeName: id
             KeyType: HASH
+          -
+            AttributeName: deleteFlag
+            KeyType: RANGE
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1

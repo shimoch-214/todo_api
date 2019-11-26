@@ -12,13 +12,7 @@ class CustomError(Exception):
   def __str__(self):
     response = {
       'statusCode': self.code,
-      'headers': {
-        'Content-Type': 'application/json',
-        'Accept-Charset': 'UTF-8'
-      },
-      'body': {
-        'errorMessage': self.message
-      }
+      'errorMessage': self.message
     }
 
     return json.dumps(response)
