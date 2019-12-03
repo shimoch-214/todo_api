@@ -1,18 +1,30 @@
 import json
 
-class CustomError(Exception):
+class BadRequest(Exception):
   """
-  必要なattributeが送られなかった場合のエラー
-  @extends Exceptionクラスを継承
+  statusCode 400
+  リクエストヘッダ、クエリパラメータ、またはリクエストボディが不正
   """
-  def __init__(self, code, message):
-    self.code = code
-    self.message = message
+  pass
 
-  def __str__(self):
-    response = {
-      'statusCode': self.code,
-      'errorMessage': self.message
-    }
+class NotFound(Exception):
+  """
+  statusCode 404
+  リクエストされたitemが存在しない
+  """
+  pass
 
-    return json.dumps(response)
+class UnprocessableEntity(Exception):
+  """
+  statusCode 409
+  create時に該当レコードが存在している
+  """
+  pass
+
+class InternalError(Exception):
+  """
+  statusCode 500
+  dynamodb接続時のエラー
+  """
+  pass
+

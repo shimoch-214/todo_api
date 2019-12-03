@@ -27,7 +27,11 @@ provider:
         - dynamodb:GetItem
         - dynamodb:PutItem
         - dynamodb:UpdateItem
-      Resource: "arn:aws:dynamodb:ap-northeast-1:*:table/usersTable"
+      Resource: 
+        - "arn:aws:dynamodb:ap-northeast-1:*:table/usersTable"
+        - "arn:aws:dynamodb:ap-northeast-1:*:table/tasksTable"
+        - "arn:aws:dynamodb:ap-northeast-1:*:table/taskListsTable"
+        - "arn:aws:dynamodb:ap-northeast-1:*:table/taskListsTable/*"
 
 
 # you can define service wide environment variables here
@@ -104,7 +108,34 @@ functions:
                 headers:
                   Content-Type: "'application/json'"
                 template: $input.path("$.errorMessage")
-
+  taskList_create:
+    handler: taskLists/create.create
+    events:
+      - http:
+          path: tasklists
+          method: post
+          cors: true
+  taskList_index:
+    handler: taskLists/index.index
+    events:
+      - http:
+          path: tasklists
+          method: get
+          cors: true
+  taskList_update:
+    handler: taskLists/update.update
+    events:
+      - http:
+          path: tasklists/{id}
+          method: patch
+          cors: true
+  taskList_delete:
+    handler: taskLists/delete.delete
+    events:
+      - http:
+          path: tasklists/{id}
+          method: delete
+          cors: true
 # DynamoDB settings
 resources:
   Resources:
@@ -112,6 +143,7 @@ resources:
     usersTable:
       Type: AWS::DynamoDB::Table
       Properties:
+        TableName: usersTable
         AttributeDefinitions:
           -
             AttributeName: id
@@ -123,50 +155,86 @@ resources:
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
-        TableName: usersTable
+        # GlobalSecondaryIndexes:
+        #   -
+        #     IndexName: users_gsi_id
+        #     KeySchema:
+        #       -
+        #         AttributeName: id
+        #         KeyType: HASH
+        #     Projection:
+        #       ProjectionType: ALL
+        #     ProvisionedThroughput:
+        #         ReadCapacityUnits: 1
+        #         WriteCapacityUnits: 1
     # tasks
     tasksTable:
       Type: AWS::DynamoDB::Table
       Properties:
+        TableName: tasksTable
         AttributeDefinitions:
           -
-            AttributeName: id
+            AttributeName: taskListId
             AttributeType: S
           -
-            AttributeName: taskListId
+            AttributeName: name
+            AttributeType: S
+          -
+            AttributeName: id
             AttributeType: S
         KeySchema:
           -
-            AttributeName: id
+            AttributeName: taskListId
             KeyType: HASH
           -
-            AttributeName: taskListId
+            AttributeName: name
             KeyType: RANGE
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
-        TableName: tasksTable
+        GlobalSecondaryIndexes:
+          -
+            IndexName: tasks_gsi_id
+            KeySchema:
+              -
+                AttributeName: id
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+                ReadCapacityUnits: 1
+                WriteCapacityUnits: 1
     # task_lists
     taskListsTable:
       Type: AWS::DynamoDB::Table
       Properties:
+        TableName: taskListsTable
         AttributeDefinitions:
           -
             AttributeName: id
             AttributeType: S
           -
-            AttributeName: deleteFlag
-            AttributeType: B
+            AttributeName: name
+            AttributeType: S
         KeySchema:
           -
             AttributeName: id
             KeyType: HASH
-          -
-            AttributeName: deleteFlag
-            KeyType: RANGE
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
-        TableName: taskListsTable
+        GlobalSecondaryIndexes:
+          -
+            IndexName: taskLists_gsi_name
+            KeySchema:
+              -
+                AttributeName: name
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+                ReadCapacityUnits: 1
+                WriteCapacityUnits: 1
+
 
 
