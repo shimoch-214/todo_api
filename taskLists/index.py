@@ -27,7 +27,9 @@ def index(event, context):
 
     try:
       items = table.scan(
-        FilterExpression = Attr('deleteFlag').eq(False)
+        FilterExpression = Attr('deleteFlag').eq(False),
+        ProjectionExpression = 'id, #nm, description, createdAt, updatedAt',
+        ExpressionAttributeNames = {'#nm': 'name'}
       )['Items']
     except ClientError as e:
       logger.error(e)
@@ -36,6 +38,7 @@ def index(event, context):
     return {
       'statusCode': 200,
       'headers': {
+        'Access-Control-Allow-Origin': '*',
         'Content-Type': 'application/json'
       },
       'body': json.dumps(items)
@@ -47,7 +50,13 @@ def index(event, context):
     return {
       'statusCode': 500,
       'headers': {
+        'Access-Control-Allow-Origin': '*',
         'Content-Type': 'application/json'
       },
-      'body': json.dumps({'errorMessage': 'Internal server error'})
+      'body': json.dumps(
+        {
+          'statusCode': 500,
+          'errorMessage': 'Internal server error'
+        }
+      )
     }

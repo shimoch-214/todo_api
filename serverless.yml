@@ -31,7 +31,8 @@ provider:
         - "arn:aws:dynamodb:ap-northeast-1:*:table/usersTable"
         - "arn:aws:dynamodb:ap-northeast-1:*:table/tasksTable"
         - "arn:aws:dynamodb:ap-northeast-1:*:table/taskListsTable"
-        - "arn:aws:dynamodb:ap-northeast-1:*:table/taskListsTable/*"
+        - "arn:aws:dynamodb:ap-northeast-1:*:table/usersTable/*"
+        - "arn:aws:dynamodb:ap-northeast-1:*:table/tasksTable/*"
 
 
 # you can define service wide environment variables here
@@ -136,6 +137,41 @@ functions:
           path: tasklists/{id}
           method: delete
           cors: true
+  task_create:
+    handler: tasks/create.create
+    events:
+      - http:
+          path: tasklists/tasks
+          method: post
+          cors: true
+  task_update:
+    handler: tasks/update.update
+    events:
+      - http:
+          path: tasklists/tasks/{id}
+          method: patch
+          cors: true
+  task_add:
+    handler: tasks/add_remove.add_remove
+    events:
+      - http:
+          path: tasklists/tasks/{id}/add
+          method: patch
+          cors: true
+  task_remove:
+    handler: tasks/add_remove.add_remove
+    events:
+      - http:
+          path: tasklists/tasks/{id}/remove
+          method: patch
+          cors: true
+  task_delete:
+    handler: tasks/delete.delete
+    events:
+      - http:
+          path: tasklists/tasks/{id}
+          method: delete
+          cors: true
 # DynamoDB settings
 resources:
   Resources:
@@ -148,6 +184,9 @@ resources:
           -
             AttributeName: id
             AttributeType: S
+          -
+            AttributeName: email
+            AttributeType: S
         KeySchema:
           -
             AttributeName: id
@@ -155,18 +194,18 @@ resources:
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
-        # GlobalSecondaryIndexes:
-        #   -
-        #     IndexName: users_gsi_id
-        #     KeySchema:
-        #       -
-        #         AttributeName: id
-        #         KeyType: HASH
-        #     Projection:
-        #       ProjectionType: ALL
-        #     ProvisionedThroughput:
-        #         ReadCapacityUnits: 1
-        #         WriteCapacityUnits: 1
+        GlobalSecondaryIndexes:
+          -
+            IndexName: users_gsi_email
+            KeySchema:
+              -
+                AttributeName: email
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+                ReadCapacityUnits: 1
+                WriteCapacityUnits: 1
     # tasks
     tasksTable:
       Type: AWS::DynamoDB::Table
@@ -174,30 +213,24 @@ resources:
         TableName: tasksTable
         AttributeDefinitions:
           -
-            AttributeName: taskListId
-            AttributeType: S
-          -
-            AttributeName: name
-            AttributeType: S
-          -
             AttributeName: id
+            AttributeType: S
+          -
+            AttributeName: taskListId
             AttributeType: S
         KeySchema:
           -
-            AttributeName: taskListId
+            AttributeName: id
             KeyType: HASH
-          -
-            AttributeName: name
-            KeyType: RANGE
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         GlobalSecondaryIndexes:
           -
-            IndexName: tasks_gsi_id
+            IndexName: tasks_gsi_taskListId
             KeySchema:
               -
-                AttributeName: id
+                AttributeName: taskListId
                 KeyType: HASH
             Projection:
               ProjectionType: ALL
@@ -213,9 +246,6 @@ resources:
           -
             AttributeName: id
             AttributeType: S
-          -
-            AttributeName: name
-            AttributeType: S
         KeySchema:
           -
             AttributeName: id
@@ -223,18 +253,5 @@ resources:
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
-        GlobalSecondaryIndexes:
-          -
-            IndexName: taskLists_gsi_name
-            KeySchema:
-              -
-                AttributeName: name
-                KeyType: HASH
-            Projection:
-              ProjectionType: ALL
-            ProvisionedThroughput:
-                ReadCapacityUnits: 1
-                WriteCapacityUnits: 1
-
 
 
