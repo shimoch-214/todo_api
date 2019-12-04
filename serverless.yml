@@ -137,6 +137,13 @@ functions:
           path: tasklists/{id}
           method: delete
           cors: true
+  taskList_tasks:
+    handler: taskLists/tasks.tasks
+    events:
+      - http:
+          path: tasklists/{id}/tasks
+          method: get
+          cors: true
   task_create:
     handler: tasks/create.create
     events:
