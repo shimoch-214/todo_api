@@ -73,7 +73,8 @@ def create(event, context):
       'userIds': body['userIds'],
       'createdAt': timestamp,
       'updatedAt': timestamp,
-      'deleteFlag': False
+      'deleteFlag': False,
+      'done': False
     }
 
     # taskの保存
