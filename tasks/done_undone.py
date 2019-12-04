@@ -9,51 +9,49 @@ import sys
 sys.path.append("..")
 import errors
 from errors import build_response
+import re
 
 # tableの取得
 dynamodb = boto3.resource('dynamodb')
-task_lists_table = dynamodb.Table('taskListsTable')
 tasks_table = dynamodb.Table('tasksTable')
 
 # logの設定
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
-def tasks(event, context):
-  """
-  taskListに紐づくtask一覧の取得
-  """
+def done_undone(event, context):
   try:
     logger.info(event)
     if not event['pathParameters']:
       raise errors.BadRequest('Bad request')
-    task_list_id = event['pathParameters']['id']
+    task_id = event['pathParameters']['id']
 
-    # taskListが存在するか
+    # done or undone で ture or false
+    if re.match('.*/done$', event['resource']):
+      check = True
+    else:
+      check = False
+
+    # taskを更新
     try:
-      task_list = task_lists_table.query(
-        FilterExpression = Attr('deleteFlag').eq(False),
-        KeyConditionExpression = Key('id').eq(task_list_id)
+      tasks_table.update_item(
+        Key = {
+          'id': task_id
+        },
+        UpdateExpression = 'set done = :d',
+        ConditionExpression = 'deleteFlag = :flag',
+        ExpressionAttributeValues = {
+          ':d': check,
+          ':flag': False
+        }
       )
     except ClientError as e:
       logger.error(e.response)
-      raise errors.InternalError('Internal server error')
-    if task_list['Count'] == 0:
-      raise errors.NotFound('The requested tasklist does not exist')
-
-    # taskの取得
-    try:
-      tasks = tasks_table.query(
-        IndexName = 'tasks_gsi_taskListId',
-        FilterExpression = Attr('deleteFlag').eq(False),
-        ProjectionExpression = 'id, #nm, description, userIds, createdAt, updatedAt',
-        ExpressionAttributeNames = {'#nm': 'name'},
-        KeyConditionExpression = Key('taskListId').eq(task_list_id)
-      )['Items']
-    except ClientError as e:
-      logger.error(e)
-      raise errors.InternalError('Internal server error')
-
+      if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+        raise errors.NotFound('The requested task does not exist')
+      else:
+        raise errors.InternalError('Internal server error')
+    
     return {
       'statusCode': 200,
       'headers': {
@@ -62,9 +60,7 @@ def tasks(event, context):
       },
       'body': json.dumps(
         {
-          'statusCode': 200,
-          'taskList': task_list_id,
-          'tasks': tasks
+          'statusCode': 200
         }
       )
     }
@@ -96,3 +92,4 @@ def tasks(event, context):
         }
       )
     }
+

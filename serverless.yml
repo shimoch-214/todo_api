@@ -172,6 +172,20 @@ functions:
           path: tasklists/tasks/{id}/remove
           method: patch
           cors: true
+  task_done:
+    handler: tasks/done_undone.done_undone
+    events:
+      - http:
+          path: tasklists/tasks/{id}/done
+          method: patch
+          cors: true
+  task_undone:
+    handler: tasks/done_undone.done_undone
+    events:
+      - http:
+          path: tasklists/tasks/{id}/undone
+          method: patch
+          cors: true
   task_delete:
     handler: tasks/delete.delete
     events:
