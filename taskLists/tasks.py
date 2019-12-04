@@ -19,10 +19,9 @@ tasks_table = dynamodb.Table('tasksTable')
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
-def delete(event, context):
+def tasks(event, context):
   """
-  tasklistのdeleteFlagをfalseに変更
-  また関連するtaskのdeleteFlagもfalseに変更
+  taskListに紐づくtask一覧の取得
   """
   try:
     logger.info(event)
@@ -30,53 +29,29 @@ def delete(event, context):
       raise errors.BadRequest('Bad request')
     task_list_id = event['pathParameters']['id']
 
-    # tasklistをdelete
+    # taskListが存在するか
     try:
-      task_lists_table.update_item(
-        Key = {
-          'id': task_list_id
-        },
-        UpdateExpression = 'set deleteFlag = :f',
-        ConditionExpression = 'deleteFlag = :flag',
-        ExpressionAttributeValues = {
-          ':f': True,
-          ':flag': False
-        }
-      )
-    except ClientError as e:
-      logger.error(e.response)
-      if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
-        raise errors.NotFound('The requested task does not exist')
-      else:
-        raise errors.InternalError('Internal server error')
-    
-    # 関連するtaskを取得
-    try:
-      tasks = tasks_table.query(
-        IndexName = 'tasks_gsi_taskListId',
+      task_list = task_lists_table.query(
         FilterExpression = Attr('deleteFlag').eq(False),
-        ProjectionExpression = 'id',
-        KeyConditionExpression = Key('taskListId').eq(task_list_id)
+        KeyConditionExpression = Key('id').eq(task_list_id)
       )
     except ClientError as e:
       logger.error(e.response)
       raise errors.InternalError('Internal server error')
-    task_ids = [task['id'] for task in tasks['Items']]
+    if task_list['Count'] == 0:
+      raise errors.NotFound('The requested tasklist does not exist')
 
-    # 関連するtaskをdelete
+    # taskの取得
     try:
-      for task_id in task_ids:
-        tasks_table.update_item(
-          Key = {
-            'id': task_id
-          },
-          UpdateExpression = 'set deleteFlag = :f',
-          ExpressionAttributeValues = {
-            ':f': True,
-          }
-        )
+      tasks = tasks_table.query(
+        IndexName = 'tasks_gsi_taskListId',
+        FilterExpression = Attr('deleteFlag').eq(False),
+        ProjectionExpression = 'id, #nm, description, userIds, createdAt, updatedAt',
+        ExpressionAttributeNames = {'#nm': 'name'},
+        KeyConditionExpression = Key('taskListId').eq(task_list_id)
+      )['Items']
     except ClientError as e:
-      logger.error(e.response)
+      logger.error(e)
       raise errors.InternalError('Internal server error')
 
     return {
@@ -87,11 +62,12 @@ def delete(event, context):
       },
       'body': json.dumps(
         {
-          'statusCode': 200
+          'statusCode': 200,
+          'tasks': tasks
         }
       )
     }
-
+  
   except errors.BadRequest as e:
     logger.error(e)
     return build_response(e, 400)
@@ -119,4 +95,3 @@ def delete(event, context):
         }
       )
     }
-

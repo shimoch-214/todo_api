@@ -27,12 +27,12 @@ def delete(event, context):
     logger.info(event)
     if not event['pathParameters']:
       raise errors.BadRequest('Bad request')
-    taskId = event['pathParameters']['id']
+    task_id = event['pathParameters']['id']
 
     try:
       table.update_item(
         Key = {
-          'id': taskId
+          'id': task_id
         },
         UpdateExpression = 'set deleteFlag = :f',
         ConditionExpression = 'deleteFlag = :flag',

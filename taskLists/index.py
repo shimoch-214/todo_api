@@ -41,7 +41,12 @@ def index(event, context):
         'Access-Control-Allow-Origin': '*',
         'Content-Type': 'application/json'
       },
-      'body': json.dumps(items)
+      'body': json.dumps(
+        {
+          'statusCode': 200,
+          'taskLists': items
+        }
+      )
     }
 
 
