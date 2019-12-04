@@ -12,16 +12,15 @@ from errors import build_response
 
 # tableの取得
 dynamodb = boto3.resource("dynamodb")
-table = dynamodb.Table("taskListsTable")
+table = dynamodb.Table("tasksTable")
 
 # logの設定
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
-
 def update(event, context):
   """
-  taskListの更新
+  taskをupdate
   nameおよびdescription
   """
   try:
@@ -31,14 +30,14 @@ def update(event, context):
     
     data = json.loads(event['body'])
     # dataから不要なattributeを削除
-    data = { k: v for k, v in data.items() if k in ['name', 'description']}
+    data = { k: v for k, v in data.items() if k in ['name', 'description'] }
     # name, descriptionが空であれば削除
-    data = { k: v for k, v in data.items() if v}
+    data = { k: v for k, v in data.items() if v }
     if not data:
       raise errors.BadRequest('Bad request')
     # dataにupdatedAtを追加
     data['updatedAt'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    task_list_id = event['pathParameters']['id']
+    task_id = event['pathParameters']['id']
 
     UpdateExpression = []
     ExpressionAttributeNames = {}
@@ -53,7 +52,7 @@ def update(event, context):
     try:
       result = table.update_item(
         Key = {
-          'id': task_list_id
+          'id': task_id
         },
         UpdateExpression = UpdateExpression,
         ConditionExpression = ConditionExpression,
@@ -64,10 +63,10 @@ def update(event, context):
     except ClientError as e:
       logger.error(e.response)
       if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
-        raise errors.NotFound('The requested taskList does not exist')
+        raise errors.NotFound('The requested task does not exist')
       else:
         raise errors.InternalError('Internal server error')
-
+    
     return {
       'statusCode': 200,
       'headers': {
@@ -77,9 +76,9 @@ def update(event, context):
       'body': json.dumps(
         {
           'statusCode': 200,
-          'taskList': result['Attributes']
+          'task': result['Attributes']
         }
-      )
+      )    
     }
 
   except errors.BadRequest as e:
