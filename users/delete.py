@@ -61,7 +61,7 @@ def delete(event, context):
       raise errors.InternalError
 
     for task in tasks:
-      task['userIds'] = set(task['userIds']) - {user_id}
+      task['userIds'] = list(set(task['userIds']) - {user_id})
       try:
         tasks_table.update_item(
           Key = {

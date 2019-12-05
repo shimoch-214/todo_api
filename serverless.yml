@@ -126,6 +126,13 @@ functions:
           path: tasklists/tasks/{id}
           method: delete
           cors: true
+  task_users:
+    handler: tasks/users.users
+    events:
+      - http:
+          path: tasklists/tasks/{id}/users
+          method: get
+          cors: true
 # DynamoDB settings
 resources:
   Resources:
