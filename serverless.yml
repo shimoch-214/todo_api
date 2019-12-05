@@ -1,17 +1,3 @@
-# Welcome to Serverless!
-#
-# This file is the main config file for your service.
-# It's very minimal at this point and uses default values.
-# You can always add more config options for more control.
-# We've included some commented out config examples here.
-# Just uncomment any of them to get that config option.
-#
-# For full config options, check the docs:
-#    docs.serverless.com
-#
-# Happy Coding!
-# test
-
 service: todo-api
 
 provider:
@@ -34,20 +20,6 @@ provider:
         - "arn:aws:dynamodb:ap-northeast-1:*:table/usersTable/*"
         - "arn:aws:dynamodb:ap-northeast-1:*:table/tasksTable/*"
 
-
-# you can define service wide environment variables here
-#  environment:
-#    variable1: value1
-
-# you can add packaging information here
-#package:
-#  include:
-#    - include-me.py
-#    - include-me-dir/**
-#  exclude:
-#    - exclude-me.py
-#    - exclude-me-dir/**
-
 functions:
   user_create:
     handler: users/create.create
@@ -55,60 +27,21 @@ functions:
       - http:
           path: users
           method: post
-          integration: lambda
           cors: true
-          response:
-            headers:
-              Content-Type: "'application/json'"
-            template: $input.path("$")
-            statusCodes:
-              200:
-                pattern: ''
-              400:
-                pattern: '.*"statusCode": 400,.*'
-                headers:
-                  Content-Type: "'application/json'"
-                template: $input.path("$.errorMessage")
   user_update:
     handler: users/update.update
     events:
       - http:
           path: users/{id}
-          method: put
-          integration: lambda
+          method: patch
           cors: true
-          response:
-            headers:
-              Content-Type: "'application/json'"
-            template: $input.path("$")
-            statusCodes:
-              200:
-                pattern: ''
-              400:
-                pattern: '.*"statusCode": 400,.*'
-                headers:
-                  Content-Type: "'application/json'"
-                template: $input.path("$.errorMessage")
   user_delete:
     handler: users/delete.delete
     events:
       - http:
-          path: users/delete/{id}
-          method: patch
-          integration: lambda
+          path: users/{id}
+          method: delete
           cors: true
-          response:
-            headers:
-              Content-Type: "'application/json'"
-            template: $input.path("$")
-            statusCodes:
-              200:
-                pattern: ''
-              400:
-                pattern: '.*"statusCode": 400,.*'
-                headers:
-                  Content-Type: "'application/json'"
-                template: $input.path("$.errorMessage")
   taskList_create:
     handler: taskLists/create.create
     events:

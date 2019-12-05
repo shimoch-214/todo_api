@@ -46,7 +46,7 @@ def delete(event, context):
     except ClientError as e:
       logger.error(e.response)
       if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
-        raise errors.NotFound('The requested task does not exist')
+        raise errors.NotFound('This task does not exist')
       else:
         raise errors.InternalError('Internal server error')
     

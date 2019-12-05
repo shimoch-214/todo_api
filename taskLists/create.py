@@ -57,10 +57,12 @@ def create(event, context):
         'Access-Control-Allow-Origin': '*',
         'Content-Type': 'application/json'
       },
-      'body': json.dumps({
-        'statusCode': 200,
-        'taskList': task_list
-      })
+      'body': json.dumps(
+        {
+          'statusCode': 200,
+          'taskList': task_list
+        }
+      )
     }
 
   except errors.BadRequest as e:
