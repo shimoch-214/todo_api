@@ -8,6 +8,7 @@ from botocore.exceptions import ClientError
 import sys
 sys.path.append("..")
 import errors
+from errors import build_response
 import os
 
 # tableの取得
@@ -25,15 +26,14 @@ def index(event, context):
   """
   try:
     logger.info(event)
-
     try:
-      items = task_lists_table.scan(
+      task_lists= task_lists_table.scan(
         FilterExpression = Attr('deleteFlag').eq(False),
         ProjectionExpression = 'id, #nm, description, createdAt, updatedAt',
         ExpressionAttributeNames = {'#nm': 'name'}
       )['Items']
     except ClientError as e:
-      logger.error(e)
+      logger.error(e.response)
       raise errors.InternalError('Internal server error')
 
     return {
@@ -45,11 +45,14 @@ def index(event, context):
       'body': json.dumps(
         {
           'statusCode': 200,
-          'taskLists': items
+          'taskLists': task_lists
         }
       )
     }
-
+  
+  except errors.InternalError as e:
+    logger.error(e)
+    return build_response(e, 500)
 
   except Exception as e:
     logger.info(e)
