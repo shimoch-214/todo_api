@@ -38,10 +38,10 @@ def delete(event, context):
           'id': task_list_id
         },
         UpdateExpression = 'set deleteFlag = :f',
-        ConditionExpression = 'deleteFlag = :flag',
+        ConditionExpression = 'deleteFlag = :now',
         ExpressionAttributeValues = {
           ':f': True,
-          ':flag': False
+          ':now': False
         }
       )
     except ClientError as e:

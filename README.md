@@ -31,6 +31,43 @@ $ sls config credentials --provider aws --key AccessKeyId --secret SecretAccessK
 $ sls deploy
 ```
 
+## Tables(DynamoDB)
+
+### usersTable
+
+- Attributes
+  - id(PK HASH): string
+  - email(GSI HASH): string
+  - name: string
+  - email: string
+  - phoneNumber: string
+  - createdAt: string
+  - updatedAt: string
+  - deleteFlag: bool
+
+### tasksTable
+
+- Attributes
+  - id(PK HASH): string
+  - taskListId(GSI HASH): string
+  - name: string
+  - description: string
+  - done: bool
+  - userIds: array
+  - createdAt: string
+  - updatedAt: string
+  - deleteFlag: bool
+
+### taskListsTable
+
+- Attributes
+  - id(PK HASH): string
+  - name: string
+  - description: string
+  - createdAt: string
+  - updatedAt: string
+  - deleteFlag: bool
+
 ## Usage
 
 ### User_Create
@@ -59,7 +96,7 @@ curl -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/users/{
 ### User_Delete
 
 ユーザーの削除。
-論理削除で実装しています。"deleteFlag"をfalseからtrueに変更します。また参加しいるtaskの"userIds"より自身のidを削除します。
+論理削除で実装しています。"deleteFlag"をfalseからtrueに変更します。また参加しているタスクの"userIds"より自身のidを削除します。
 
 ```
 curl -X DELETE https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/users/{user_id}
@@ -67,7 +104,7 @@ curl -X DELETE https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/users/
 
 ### User_tasks_tasklists
 
-ユーザーの参加するtask一覧およびtasklist一覧を取得。
+ユーザーの参加するタスク一覧およびタスクリスト一覧を取得。
 
 ```
 curl https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/users/{user_id}/tasks_tasklists
@@ -105,7 +142,7 @@ example output
     }
   ]
 }
- ```
+```
 
 ### Task_Create
 
@@ -141,7 +178,7 @@ curl -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{
 ### Task_Remove
 
 タスクからユーザーを削除。
-userIds"(array)から与えられたuserIdsを削除します。
+"userIds"(array)から与えられたuserIdsを削除します。
 
 
 ```
