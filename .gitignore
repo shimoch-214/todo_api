@@ -20,3 +20,6 @@ var/
 .serverless
 # pycache
 __pycache__
+
+.dynamodb
+node_modules

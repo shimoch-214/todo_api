@@ -1,5 +1,9 @@
 service: todo-api
 
+plugins: 
+  - serverless-dynamodb-local
+  - serverless-offline
+
 provider:
   name: aws
   runtime: python3.6
@@ -7,9 +11,9 @@ provider:
   region: ap-northeast-1
   timeout: 10
   environment:
-    usersTable: ${self:service}-users-${self:provider.stage}
-    tasksTable: ${self:service}-tasks-${self:provider.stage}
-    taskListsTable: ${self:service}-taskLists-${self:provider.stage}
+    usersTable: ${self:service}-users-${opt:stage, self:provider.stage}
+    tasksTable: ${self:service}-tasks-${opt:stage, self:provider.stage}
+    taskListsTable: ${self:service}-taskLists-${opt:stage, self:provider.stage}
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -24,6 +28,13 @@ provider:
         - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.taskListsTable}"
         - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.usersTable}/*"
         - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.tasksTable}/*"
+
+package:
+  exclude:
+    - node_modules/**
+    - migrations/**
+    - .dynamodb/**
+    - .git/**
 
 functions:
   user_create:
@@ -227,4 +238,21 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
 
-
+custom:
+  dynamodb:
+    stages:
+      - dev
+    start:
+      port: 8000
+      inMemory: true
+      migrate: true
+      seed: true
+    seed:
+      test:
+        sources:
+          - table: ${self:provider.environment.usersTable}
+            sources: [./migrations/users.json]
+          - table: ${self:provider.environment.tasksTable}
+            sources: [./migrations/tasks.json]
+          - table: ${self:provider.environment.taskListsTable}
+            sources: [./migrations/taskLists.json]
