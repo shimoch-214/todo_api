@@ -20,6 +20,9 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
 def users(event, context):
+  """
+  taskに所属するuser一覧を返す
+  """
   try:
     logger.info(event)
     if not event['pathParameters']:
