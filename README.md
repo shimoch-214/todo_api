@@ -78,7 +78,7 @@ $ sls deploy
 $ curl -X POST https://https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/users --data '{"name": "user1", "email": "example1@foo.com", "phoneNumber": "08011112222"}'
 ```
 
-required attribute
+required attributes
 - name
 - email
 - phoneNumber
@@ -152,9 +152,10 @@ example output
 $ curl -X POST https://https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks --data '{"name": "task1", "description": "this is task1"}'
 ```
 
-required attribute
+required attributes
 - name
 - description
+- taskListId
 - userIds(option)
 
 ### Task_Update
@@ -246,7 +247,7 @@ example output
 $ curl -X POST https://https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasklists --data '{"name": "tasklist1", "description": "this is tasklist1"}'
 ```
 
-required attribute
+required attributes
 - name
 - description
 
