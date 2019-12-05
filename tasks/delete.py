@@ -9,10 +9,11 @@ import sys
 sys.path.append("..")
 import errors
 from errors import build_response
+import os
 
 # tableの取得
 dynamodb = boto3.resource("dynamodb")
-table = dynamodb.Table("tasksTable")
+tasks_table = dynamodb.Table(os.environ['tasksTable'])
 
 # logの設定
 logger = logging.getLogger()
@@ -30,7 +31,7 @@ def delete(event, context):
     task_id = event['pathParameters']['id']
 
     try:
-      table.update_item(
+      tasks_table.update_item(
         Key = {
           'id': task_id
         },

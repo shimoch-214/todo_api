@@ -5,6 +5,11 @@ provider:
   runtime: python3.6
   stage: dev
   region: ap-northeast-1
+  timeout: 10
+  environment:
+    usersTable: ${self:service}-users-${self:provider.stage}
+    tasksTable: ${self:service}-tasks-${self:provider.stage}
+    taskListsTable: ${self:service}-taskLists-${self:provider.stage}
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -14,11 +19,11 @@ provider:
         - dynamodb:PutItem
         - dynamodb:UpdateItem
       Resource: 
-        - "arn:aws:dynamodb:ap-northeast-1:*:table/usersTable"
-        - "arn:aws:dynamodb:ap-northeast-1:*:table/tasksTable"
-        - "arn:aws:dynamodb:ap-northeast-1:*:table/taskListsTable"
-        - "arn:aws:dynamodb:ap-northeast-1:*:table/usersTable/*"
-        - "arn:aws:dynamodb:ap-northeast-1:*:table/tasksTable/*"
+        - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.usersTable}"
+        - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.tasksTable}"
+        - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.taskListsTable}"
+        - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.usersTable}/*"
+        - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.tasksTable}/*"
 
 functions:
   user_create:
@@ -46,7 +51,7 @@ functions:
     handler: users/tasks_taskLists.tasks_taskLists
     events:
       - http:
-          path: users/{id}/tasks_taskLists
+          path: users/{id}/tasks_tasklists
           method: get
           cors: true
   taskList_create:
@@ -88,56 +93,56 @@ functions:
     handler: tasks/create.create
     events:
       - http:
-          path: tasklists/tasks
+          path: tasks
           method: post
           cors: true
   task_update:
     handler: tasks/update.update
     events:
       - http:
-          path: tasklists/tasks/{id}
+          path: tasks/{id}
           method: patch
           cors: true
   task_add:
     handler: tasks/add_remove.add_remove
     events:
       - http:
-          path: tasklists/tasks/{id}/add
+          path: tasks/{id}/add
           method: patch
           cors: true
   task_remove:
     handler: tasks/add_remove.add_remove
     events:
       - http:
-          path: tasklists/tasks/{id}/remove
+          path: tasks/{id}/remove
           method: patch
           cors: true
   task_done:
     handler: tasks/done_undone.done_undone
     events:
       - http:
-          path: tasklists/tasks/{id}/done
+          path: tasks/{id}/done
           method: patch
           cors: true
   task_undone:
     handler: tasks/done_undone.done_undone
     events:
       - http:
-          path: tasklists/tasks/{id}/undone
+          path: tasks/{id}/undone
           method: patch
           cors: true
   task_delete:
     handler: tasks/delete.delete
     events:
       - http:
-          path: tasklists/tasks/{id}
+          path: tasks/{id}
           method: delete
           cors: true
   task_users:
     handler: tasks/users.users
     events:
       - http:
-          path: tasklists/tasks/{id}/users
+          path: tasks/{id}/users
           method: get
           cors: true
 # DynamoDB settings
@@ -147,7 +152,7 @@ resources:
     usersTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: usersTable
+        TableName: ${self:provider.environment.usersTable}
         AttributeDefinitions:
           -
             AttributeName: id
@@ -178,7 +183,7 @@ resources:
     tasksTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: tasksTable
+        TableName: ${self:provider.environment.tasksTable}
         AttributeDefinitions:
           -
             AttributeName: id
@@ -209,7 +214,7 @@ resources:
     taskListsTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: taskListsTable
+        TableName: ${self:provider.environment.taskListsTable}
         AttributeDefinitions:
           -
             AttributeName: id

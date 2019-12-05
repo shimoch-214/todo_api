@@ -9,12 +9,13 @@ import sys
 sys.path.append('..')
 import errors
 from errors import build_response
+import os
 
 # tableの取得
 dynamodb = boto3.resource('dynamodb')
-users_table = dynamodb.Table('usersTable')
-tasks_table = dynamodb.Table('tasksTable')
-task_lists_table = dynamodb.Table('taskListsTable')
+users_table = dynamodb.Table(os.environ['usersTable'])
+tasks_table = dynamodb.Table(os.environ['tasksTable'])
+task_lists_table = dynamodb.Table(os.environ['taskListsTable'])
 
 # logの設定
 logger = logging.getLogger()
@@ -122,9 +123,4 @@ def tasks_taskLists(event, context):
         }
       )
     }
-
-
-      
-
-
 

@@ -9,10 +9,11 @@ import sys
 sys.path.append("..")
 import errors
 from errors import build_response
+import os
 
 # tableの取得
 dynamodb = boto3.resource("dynamodb")
-table = dynamodb.Table("taskListsTable")
+task_lists_table = dynamodb.Table(os.environ['taskListsTable'])
 
 # logの設定
 logger = logging.getLogger()
@@ -43,7 +44,7 @@ def create(event, context):
     }
     # taskListの保存
     try:
-      table.put_item(
+      task_lists_table.put_item(
         Item = task_list,
       )
     except ClientError as e:

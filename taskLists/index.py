@@ -8,10 +8,11 @@ from botocore.exceptions import ClientError
 import sys
 sys.path.append("..")
 import errors
+import os
 
 # tableの取得
 dynamodb = boto3.resource("dynamodb")
-table = dynamodb.Table("taskListsTable")
+task_lists_table = dynamodb.Table(os.environ['taskListsTable'])
 
 # logの設定
 logger = logging.getLogger()
@@ -26,7 +27,7 @@ def index(event, context):
     logger.info(event)
 
     try:
-      items = table.scan(
+      items = task_lists_table.scan(
         FilterExpression = Attr('deleteFlag').eq(False),
         ProjectionExpression = 'id, #nm, description, createdAt, updatedAt',
         ExpressionAttributeNames = {'#nm': 'name'}
