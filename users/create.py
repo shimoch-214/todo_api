@@ -10,10 +10,11 @@ sys.path.append("..")
 import errors
 from errors import build_response
 import re
+import os
 
 # tableの取得
 dynamodb = boto3.resource("dynamodb")
-users_table = dynamodb.Table("usersTable")
+users_table = dynamodb.Table(os.environ['usersTable'])
 
 # logの設定
 logger = logging.getLogger()
@@ -130,4 +131,3 @@ def validate_phone(phone_number):
   if not re.match(r'^0\d{9,10}$', phone_number):
     raise errors.BadRequest('Invalid phoneNumber')
 
-  

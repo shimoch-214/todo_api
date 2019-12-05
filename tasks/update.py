@@ -9,10 +9,11 @@ import sys
 sys.path.append("..")
 import errors
 from errors import build_response
+import os
 
 # tableの取得
 dynamodb = boto3.resource("dynamodb")
-table = dynamodb.Table("tasksTable")
+tasks_table = dynamodb.Table(os.environ['tasksTable'])
 
 # logの設定
 logger = logging.getLogger()
@@ -50,7 +51,7 @@ def update(event, context):
     ConditionExpression = 'deleteFlag = :flag'
     ExpressionAttributeValues[':flag'] = False
     try:
-      result = table.update_item(
+      result = tasks_table.update_item(
         Key = {
           'id': task_id
         },
@@ -58,7 +59,7 @@ def update(event, context):
         ConditionExpression = ConditionExpression,
         ExpressionAttributeNames = ExpressionAttributeNames,
         ExpressionAttributeValues = ExpressionAttributeValues,
-        ReturnValues = 'UPDATED_NEW'
+        ReturnValues = 'ALL_NEW'
       )
     except ClientError as e:
       logger.error(e.response)
@@ -67,6 +68,7 @@ def update(event, context):
       else:
         raise errors.InternalError('Internal server error')
     
+    del result['Attributes']['deleteFlag']
     return {
       'statusCode': 200,
       'headers': {
@@ -78,7 +80,7 @@ def update(event, context):
           'statusCode': 200,
           'task': result['Attributes']
         }
-      )    
+      )
     }
 
   except errors.BadRequest as e:

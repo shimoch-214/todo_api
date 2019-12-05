@@ -15,45 +15,71 @@ import os
 dynamodb = boto3.resource('dynamodb')
 users_table = dynamodb.Table(os.environ['usersTable'])
 tasks_table = dynamodb.Table(os.environ['tasksTable'])
+task_lists_table = dynamodb.Table(os.environ['taskListsTable'])
 
 # logの設定
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
-def users(event, context):
+def tasks_taskLists(event, context):
   """
-  taskに所属するuser一覧を返す
+  userが属するtasksおよびtaskListsを返す
   """
   try:
     logger.info(event)
     if not event['pathParameters']:
       raise errors.BadRequest('Bad request')
-    task_id = event['pathParameters']['id']
-
-    # taskの取得
+    user_id = event['pathParameters']['id']
+    
+    # userが存在するか
     try:
-      task = tasks_table.query(
+      user = users_table.query(
         FilterExpression = Attr('deleteFlag').eq(False),
-        KeyConditionExpression = Key('id').eq(task_id)
+        KeyConditionExpression = Key('id').eq(user_id)
       )
     except ClientError as e:
-      logger.info(e.response)
+      logger.error(e.response)
       raise errors.InternalError('Internal server error')
-    if task['Count'] == 0:
-      raise errors.NotFound('This task does not exist')
-    
-    # usersの取得
+    if user['Count'] == 0:
+      raise errors.NotFound('This user does not exist')
+
+    # userが属するtasksを取得
     try:
-      users = []
-      for user_id in task['Items'][0]['userIds']:
-        user = users_table.get_item(Key = {'id': user_id})['Item']
-        if not user['deleteFlag']:
-          del user['deleteFlag']
-          users.append(user)
+      tasks = tasks_table.scan(
+        FilterExpression = Attr('deleteFlag').eq(False) & Attr('userIds').contains(user_id),
+        ProjectionExpression = 'id, #nm, description, taskListId, userIds, done, createdAt, updatedAt',
+        ExpressionAttributeNames = {'#nm': 'name'}
+      )['Items']
     except ClientError as e:
-      logger.info(e.response)
+      logger.error(e.response)
+      raise errors.InternalError
+
+    # taskListIdでグループ化
+    tasks_group = {}
+    for task in tasks:
+      if task['taskListId'] in tasks_group:
+        tasks_group[task['taskListId']].append(task)
+      else:
+        tasks_group[task['taskListId']] = [task]
+    
+    # taskListsを取得
+    task_lists = []
+    try:
+      for task_list_id in tasks_group.keys():
+        task_list = task_lists_table.query(
+          FilterExpression = Attr('deleteFlag').eq(False),
+          KeyConditionExpression = Key('id').eq(task_list_id),
+          ProjectionExpression = 'id, #nm, description, createdAt, updatedAt',
+          ExpressionAttributeNames = {'#nm': 'name'}
+        )
+        task_lists.append(task_list['Items'][0])
+    except ClientError as e:
+      logger.error(e.response)
       raise errors.InternalError('Internal server error')
 
+    # 結果の整形
+    for task_list in task_lists:
+      task_list['tasks'] = tasks_group[task_list['id']]
 
     return {
         'statusCode': 200,
@@ -64,8 +90,8 @@ def users(event, context):
         'body': json.dumps(
           {
             'statusCode': 200,
-            'taskId': task_id,
-            'users': users
+            'userId': user_id,
+            'taskLists': task_lists
           }
         )
       }
@@ -97,3 +123,4 @@ def users(event, context):
         }
       )
     }
+
