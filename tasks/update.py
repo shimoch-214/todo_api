@@ -9,10 +9,11 @@ import sys
 sys.path.append("..")
 import errors
 from errors import build_response
+from db_util.client import client
 import os
 
 # tableの取得
-dynamodb = boto3.resource("dynamodb")
+dynamodb = client()
 tasks_table = dynamodb.Table(os.environ['tasksTable'])
 
 # logの設定
