@@ -7,13 +7,13 @@ plugins:
 provider:
   name: aws
   runtime: python3.6
-  stage: dev
+  stage: ${opt:stage, self:custom.defaultStage}
   region: ap-northeast-1
   timeout: 10
   environment:
-    usersTable: ${self:service}-users-${opt:stage, self:provider.stage}
-    tasksTable: ${self:service}-tasks-${opt:stage, self:provider.stage}
-    taskListsTable: ${self:service}-taskLists-${opt:stage, self:provider.stage}
+    usersTable: ${self:service}-users-${self:provider.stage}
+    tasksTable: ${self:service}-tasks-${self:provider.stage}
+    taskListsTable: ${self:service}-taskLists-${self:provider.stage}
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -239,6 +239,7 @@ resources:
           WriteCapacityUnits: 1
 
 custom:
+  defaultStage: dev
   dynamodb:
     stages:
       - dev
