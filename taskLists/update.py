@@ -1,20 +1,11 @@
 import json
 import logging
-import uuid
-from datetime import datetime
-import boto3
-from boto3.dynamodb.conditions import Key, Attr
-from botocore.exceptions import ClientError
 import sys
 sys.path.append("..")
 import errors
 from errors import build_response
-from db_util.client import client
-import os
-
-# tableの取得
-dynamodb = client()
-table = dynamodb.Table(os.environ['taskListsTable'])
+from models.task_list_model import TaskListModel
+from pynamodb.exceptions import UpdateError
 
 # logの設定
 logger = logging.getLogger()
@@ -38,39 +29,31 @@ def update(event, context):
     data = { k: v for k, v in data.items() if v}
     if not data:
       raise errors.BadRequest('Bad request')
-    # dataにupdatedAtを追加
-    data['updatedAt'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    if 'name' in data:
+      validation_name(data['name'])
+    if 'description' in data:
+      validation_name(data['description'])
     task_list_id = event['pathParameters']['id']
 
-    UpdateExpression = []
-    ExpressionAttributeNames = {}
-    ExpressionAttributeValues = {}
-    for k, v in data.items():
-      UpdateExpression.append('#' + k + '=' + ':' + k[0])
-      ExpressionAttributeNames['#' + k] = k
-      ExpressionAttributeValues[':' + k[0]] = v
-    UpdateExpression = 'set ' + ','.join(UpdateExpression)
-    ConditionExpression = 'deleteFlag = :flag'
-    ExpressionAttributeValues[':flag'] = False
+    # task_listをget
     try:
-      result = table.update_item(
-        Key = {
-          'id': task_list_id
-        },
-        UpdateExpression = UpdateExpression,
-        ConditionExpression = ConditionExpression,
-        ExpressionAttributeNames = ExpressionAttributeNames,
-        ExpressionAttributeValues = ExpressionAttributeValues,
-        ReturnValues = 'ALL_NEW'
-      )
-    except ClientError as e:
-      logger.error(e.response)
-      if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
-        raise errors.NotFound('The requested taskList does not exist')
-      else:
-        raise errors.InternalError('Internal server error')
+      task_list = TaskListModel.get(task_list_id)
+    except TaskListModel.DoesNotExist as e:
+      logger.error(e)
+      raise errors.NotFound('The taskList does not exist')
 
-    del result['Attributes']['deleteFlag']
+    # task_listを更新
+    actions = []
+    if 'name' in data:
+      actions.append(TaskListModel.name.set(data['name']))
+    if 'description' in data:
+      actions.append(TaskListModel.description.set(data['description']))
+    try:
+      task_list.update(actions = actions)
+    except UpdateError as e:
+      logger.error(e)
+      raise errors.InternalError('Internal server error')
+      
     return {
       'statusCode': 200,
       'headers': {
@@ -80,7 +63,7 @@ def update(event, context):
       'body': json.dumps(
         {
           'statusCode': 200,
-          'taskList': result['Attributes']
+          'taskList': dict(task_list)
         }
       )
     }
@@ -97,18 +80,10 @@ def update(event, context):
     logger.error(e)
     return build_response(e, 500)
 
-  except Exception as e:
-    logger.error(e)
-    return {
-      'statusCode': 500,
-      'headers': {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
-      },
-      'body': json.dumps(
-        {
-          'statusCode': 500,
-          'errorMessage': 'Internal server error'
-        }
-      )
-    }
+def validation_name(name):
+  if type(name) != str:
+    raise errors.BadRequest('"name" attribute has to be string')
+  
+def validation_description(description):
+  if type(description) != str:
+    raise errors.BadRequest('"description" attribute has to be string')
