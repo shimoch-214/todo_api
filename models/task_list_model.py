@@ -18,7 +18,7 @@ class TaskListModel(Model):
   name = UnicodeAttribute()
   description = UnicodeAttribute()
   createdAt = UTCDateTimeAttribute(default = datetime.now())
-  updatedAt = UTCDateTimeAttribute(default = datetime.now())
+  updatedAt = UTCDateTimeAttribute()
   deleteFlag = BooleanAttribute(default = False)
 
   def __iter__(self):
@@ -40,10 +40,14 @@ class TaskListModel(Model):
       return task_list
     else:
       raise cls.DoesNotExist()
-
+    
   def update(self, actions = [], condition = None):
     actions.append(TaskListModel.updatedAt.set(datetime.now()))
     super().update(actions, condition)
+  
+  def save(self, condition = None):
+    self.updatedAt = datetime.now()
+    super().save(condition)
 
   def logic_delete(self):
     """
@@ -51,5 +55,5 @@ class TaskListModel(Model):
     """
     actions = [TaskListModel.deleteFlag.set(True)]
     self.update(actions)
-  
+
 

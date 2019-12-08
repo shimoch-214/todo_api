@@ -21,7 +21,7 @@ def index(event, context):
     try:
       task_lists = TaskListModel.scan(TaskListModel.deleteFlag == False)
     except ScanError as e:
-      logger.error(e)
+      logger.exception(e)
       raise errors.InternalError('Internal server error')
 
     return {
@@ -39,5 +39,5 @@ def index(event, context):
     }
   
   except errors.InternalError as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 500)

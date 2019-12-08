@@ -1,21 +1,12 @@
 import json
 import logging
 import uuid
-from datetime import datetime
-import boto3
-from boto3.dynamodb.conditions import Key, Attr
-from botocore.exceptions import ClientError
 import sys
 sys.path.append("..")
 import errors
 from errors import build_response
-from db_util.client import client
-import re
-import os
-
-# tableの取得
-dynamodb = client()
-users_table = dynamodb.Table(os.environ['usersTable'])
+from models.user_model import UserModel
+from pynamodb.exceptions import PutError
 
 # logの設定
 logger = logging.getLogger()
@@ -34,43 +25,28 @@ def create(event, context):
     # bodyのvalidation
     validate_attributes(body)
     validate_empty(body)
-    validate_email(body['email'])
-    validate_phone(body['phoneNumber'])
+    
+    user = UserModel(
+      id = str(uuid.uuid1()),
+      name = body['name'],
+      email = body['email'],
+      phoneNumber = body['phoneNumber']
+    )
+    if not user.validate_email():
+      raise errors.BadRequest('Invalid email')
+    if not user.validate_phoneNumber():
+      raise errors.BadRequest('Invalid phoneNumber')
 
     # emailの重複がないか
-    try:
-      check = users_table.query(
-        IndexName = 'users_gsi_email',
-        FilterExpression = Attr('deleteFlag').eq(False),
-        KeyConditionExpression = Key('email').eq(body['email'])
-      )
-    except ClientError as e:
-      logger.error(e.response)
-      raise errors.InternalError('Internal server error')
-    if check['Count'] != 0:
+    if not UserModel.email_uniqueness(user):
       raise errors.UnprocessableEntity('This email has been registered')
-
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    user = {
-      'id': str(uuid.uuid1()),
-      'name': body["name"],
-      'email': body["email"],
-      'phoneNumber': body["phoneNumber"],
-      'createdAt': timestamp,
-      'updatedAt': timestamp,
-      'deleteFlag': False
-    }
-
     # userの保存
     try:
-      users_table.put_item(
-        Item = user
-      )
-    except ClientError as e:
+      user.save()
+    except PutError as e:
       logger.error(e)
       raise errors.InternalError('Internal server error')
 
-    del user['deleteFlag']
     return {
       'statusCode': 200,
       'headers': {
@@ -80,7 +56,7 @@ def create(event, context):
       'body': json.dumps(
         {
           'statusCode': 200,
-          'user': user
+          'user': dict(user)
         }
       )
     }
@@ -97,24 +73,6 @@ def create(event, context):
     logger.error(e)
     return build_response(e, 500)
 
-  except Exception as e:
-    # その他のエラー
-    logger.error(e)
-    return {
-      'statusCode': 500,
-      'headers': {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
-      },
-      'body': json.dumps(
-        {
-          'statusCode': 500,
-          'errorMessage': 'Internal server error'
-        }
-      )
-    }
-
-
 # validations
 def validate_attributes(body):
   if "name" not in body or "email" not in body or "phoneNumber" not in body:
@@ -123,12 +81,3 @@ def validate_attributes(body):
 def validate_empty(body):
   if not (body["name"] and body["email"] and body["phoneNumber"]):
     raise errors.BadRequest('"name", "email" and "phoneNumber" attributes are indispensable')
-
-def validate_email(email):
-  if not re.match(r'[A-Za-z0-9\._+]+@[A-Za-z]+\.[A-Za-z]', email):
-    raise errors.BadRequest('Invalid email')
-
-def validate_phone(phone_number):
-  if not re.match(r'^0\d{9,10}$', phone_number):
-    raise errors.BadRequest('Invalid phoneNumber')
-

@@ -24,18 +24,23 @@ def create(event, context):
       raise errors.BadRequest('Bad request')
     body = json.loads(event['body'])
     validate_attributes(body)
-    validate_empty(body)
-
     task_list = TaskListModel(
       str(uuid.uuid1()),
       name = body['name'],
       description = body['description']
     )
+
     # taskListの保存
     try:
       task_list.save()
+    except TypeError as e:
+      logger.exception(e)
+      raise errors.BadRequest('"name" and "description" attributes are string')
+    except ValueError as e:
+      logger.exception(e)
+      raise errors.BadRequest('"name" and "description" attributes must not be empty')
     except PutError as e:
-      logger.error(e)
+      logger.exception(e)
       raise errors.InternalError('Internal server error')
 
     return {
@@ -53,21 +58,14 @@ def create(event, context):
     }
 
   except errors.BadRequest as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 400)
 
   except errors.InternalError as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 500)
-
-
 
 # validations
 def validate_attributes(body):
   if not ('name' in body and 'description' in body):
-    raise errors.BadRequest('"name" and "description" attributes are indispensable')
-
-
-def validate_empty(body):
-  if not (body['name'] and body['description']):
     raise errors.BadRequest('"name" and "description" attributes are indispensable')

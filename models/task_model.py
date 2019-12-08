@@ -61,6 +61,10 @@ class TaskModel(Model):
   def update(self, actions = [], condition = None):
     actions.append(TaskModel.updatedAt.set(datetime.now()))
     super().update(actions, condition)
+  
+  def save(self, condition = None):
+    self.updatedAt = datetime.now()
+    super().save(condition)
 
   def logic_delete(self):
     """

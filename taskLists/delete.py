@@ -28,15 +28,14 @@ def delete(event, context):
     try:
       task_list = TaskListModel.get(task_list_id)
     except TaskListModel.DoesNotExist as e:
-      logger.error(e)
+      logger.exception(e)
       raise errors.NotFound('The taskList does not exist')
 
-    print(dict(task_list))
     # tasklistを論理削除
     try:
       task_list.logic_delete()
     except UpdateError as e:
-      logger.error(e)
+      logger.exception(e)
       raise errors.InternalError('Internal server error')
 
     # 関連するtasksを論理削除
@@ -47,14 +46,14 @@ def delete(event, context):
       )
       print(tasks)
     except QueryError as e:
-      logger.error(e)
+      logger.exception(e)
       raise errors.InternalError('Internal server error')
 
     for task in tasks:
       try:
         task.logic_delete()
       except UpdateError as e:
-        logger.error(e)
+        logger.exception(e)
         raise errors.InternalError('Internal server error')
 
     return {
@@ -71,14 +70,14 @@ def delete(event, context):
     }
 
   except errors.BadRequest as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 400)
 
   except errors.NotFound as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 404)
 
   except errors.InternalError as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 500)
   

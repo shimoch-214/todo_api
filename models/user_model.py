@@ -4,6 +4,7 @@ from datetime import datetime
 from pynamodb.models import Model
 from pynamodb.attributes import UnicodeAttribute, BooleanAttribute, UTCDateTimeAttribute
 from pynamodb.indexes import GlobalSecondaryIndex, AllProjection
+import re
 
 class EmailIndex(GlobalSecondaryIndex):
   """
@@ -41,7 +42,6 @@ class UserModel(Model):
       if name != 'deleteFlag':
         yield name, attr.serialize(getattr(self, name))
 
-  
   @classmethod
   def get(cls,
           hash_key,
@@ -56,10 +56,29 @@ class UserModel(Model):
       return user
     else:
       raise cls.DoesNotExist()
+  
+  @classmethod
+  def email_uniqueness(cls, user):
+    check = cls.users_gsi_email.query(
+      user.email,
+      cls.deleteFlag == False
+    )
+    check = [ele for ele in check]
+    if len(check) == 0:
+      return True
+    else:
+      if user.id == check[0].id:
+        return True
+      else:
+        return False
 
   def update(self, actions = [], condition = None):
     actions.append(UserModel.updatedAt.set(datetime.now()))
     super().update(actions, condition)
+
+  def save(self, condition = None):
+    self.updatedAt = datetime.now()
+    super().save(condition)
 
   def logic_delete(self):
     """
@@ -67,3 +86,15 @@ class UserModel(Model):
     """
     actions = [UserModel.deleteFlag.set(True)]
     self.update(actions)
+
+  def validate_email(self):
+    if not re.match(r'[A-Za-z0-9\._+]+@[A-Za-z]+\.[A-Za-z]', self.email):
+      return False
+    else:
+      return True
+
+  def validate_phoneNumber(self):
+    if not re.match(r'^0\d{9,10}$', self.phoneNumber):
+      return False
+    else:
+      return True

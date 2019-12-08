@@ -1,26 +1,15 @@
 import json
 import logging
-import uuid
-from datetime import datetime
-import boto3
-from boto3.dynamodb.conditions import Key, Attr
-from botocore.exceptions import ClientError
 import sys
 sys.path.append("..")
 import errors
 from errors import build_response
-from db_util.client import client
-import re
-import os
-
-# tableの取得
-dynamodb = client()
-users_table = dynamodb.Table(os.environ['usersTable'])
+from models.user_model import UserModel
+from pynamodb.exceptions import UpdateError
 
 # logの設定
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
-
 
 def update(event, context):
   """
@@ -31,7 +20,7 @@ def update(event, context):
     logger.info(event)
     if not (event['body'] and event['pathParameters']):
       raise errors.BadRequest('Bad request')
-    
+
     data = json.loads(event['body'])
     # dataから不要なattributeを削除
     data = { k: v for k, v in data.items() if k in ['name', 'email', 'phoneNumber'] }
@@ -140,12 +129,3 @@ def update(event, context):
         }
       )
     }
-
-
-def validate_email(email):
-  if not re.match(r'[A-Za-z0-9\._+]+@[A-Za-z]+\.[A-Za-z]', email):
-    raise errors.BadRequest('Invalid email')
-
-def validate_phone(phone_number):
-  if not re.match(r'^0\d{9,10}$', phone_number):
-    raise errors.BadRequest('Invalid phoneNumber')
