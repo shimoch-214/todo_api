@@ -33,7 +33,7 @@ def update(event, context):
     try:
       task_list = TaskListModel.get(task_list_id)
     except TaskListModel.DoesNotExist as e:
-      raise errors.NotFound('The taskList does not exist')
+      raise errors.NotFound('This taskList does not exist')
     # task_listを更新
     if 'name' in data:
       task_list.name = data['name']

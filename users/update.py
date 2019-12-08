@@ -4,8 +4,8 @@ import sys
 sys.path.append("..")
 import errors
 from errors import build_response
-from models.user_model import UserModel
-from pynamodb.exceptions import UpdateError
+from models.user_model import UserModel, InvalidEmailError, InvalidPhoneNumberError, InvalidNameError
+from pynamodb.exceptions import PutError
 
 # logの設定
 logger = logging.getLogger()
@@ -24,64 +24,40 @@ def update(event, context):
     data = json.loads(event['body'])
     # dataから不要なattributeを削除
     data = { k: v for k, v in data.items() if k in ['name', 'email', 'phoneNumber'] }
-    # name, email, phoneNumberが空であれば削除
-    data = { k: v for k, v in data.items() if v }
     if not data:
       raise errors.BadRequest('Bad request')
-    if 'email' in data:
-      validate_email(data['email'])
-    if 'phoneNumber' in data:
-      validate_phone(data['phoneNumber'])
-    # dataにupdatedAtを追加
-    data['updatedAt'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     user_id = event['pathParameters']['id']
 
     # userが存在するか
     try:
-      user = users_table.query(
-        FilterExpression = Attr('deleteFlag').eq(False),
-        KeyConditionExpression = Key('id').eq(user_id)
-      )
-    except ClientError as e:
-      logger.error(e.response)
-      raise errors.InternalError('Internal server error')
-    if user['Count'] == 0:
+      user = UserModel.get(user_id)
+    except UserModel.DoesNotExist as e:
       raise errors.NotFound('This user does not exist')
 
-    # 変更後のemailが他のemailと競合しないか
-    try:
-      check = users_table.query(
-        IndexName = 'users_gsi_email',
-        FilterExpression = Attr('deleteFlag').eq(False),
-        KeyConditionExpression = Key('email').eq(data['email'])
-      )
-    except ClientError as e:
-      logger.error(e.response)
-      raise errors.InternalError('Internal server error')
-    if check['Count'] != 0 and check['Items'][0]['id'] != user_id:
-      raise errors.UnprocessableEntity('This email has been registered')
+    if 'name' in data:
+      user.name = data['name']
+    if 'email' in data:
+      user.email = data['email']
+    if 'phoneNumber' in data:
+      user.phoneNumber = data['phoneNumber']
 
     # userの更新
-    UpdateExpression = []
-    ExpressionAttributeNames = {}
-    ExpressionAttributeValues = {}
-    for k, v in data.items():
-      UpdateExpression.append('#' + k + '=' + ':' + k[0])
-      ExpressionAttributeNames['#' + k] = k
-      ExpressionAttributeValues[':' + k[0]] = v
-    UpdateExpression = 'set ' + ','.join(UpdateExpression)
     try:
-      result = users_table.update_item(
-        Key = {
-          'id': user_id
-        },
-        UpdateExpression = UpdateExpression,
-        ExpressionAttributeNames = ExpressionAttributeNames,
-        ExpressionAttributeValues = ExpressionAttributeValues,
-        ReturnValues = 'UPDATED_NEW'
-      )
-    except ClientError as e:
-      logger.error(e.response)
+      user.save()
+    except InvalidNameError as e:
+      logger.exception(e)
+      raise errors.BadRequest(str(e.with_traceback(sys.exc_info()[2])))
+    except InvalidPhoneNumberError as e:
+      logger.exception(e)
+      raise errors.BadRequest(str(e.with_traceback(sys.exc_info()[2])))
+    except InvalidEmailError as e:
+      logger.exception(e)
+      if str(e.with_traceback(sys.exc_info()[2])) == 'This email has been registered':
+        raise errors.UnprocessableEntity(str(e.with_traceback(sys.exc_info()[2])))
+      else:
+        raise errors.BadRequest(str(e.with_traceback(sys.exc_info()[2])))
+    except PutError as e:
+      logger.exception(e)
       raise errors.InternalError('Internal server error')
 
     return {
@@ -93,7 +69,7 @@ def update(event, context):
       'body': json.dumps(
         {
           'statusCode': 200,
-          'user': result['Attributes']
+          'user': dict(user)
         }
       )
     }
@@ -114,18 +90,3 @@ def update(event, context):
     logger.error(e)
     return build_response(e, 500)
 
-  except Exception as e:
-    logger.error(e)
-    return {
-      'statusCode': 500,
-      'headers': {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
-      },
-      'body': json.dumps(
-        {
-          'statusCode': 500,
-          'errorMessage': 'Internal server error'
-        }
-      )
-    }

@@ -56,29 +56,38 @@ class UserModel(Model):
       return user
     else:
       raise cls.DoesNotExist()
-  
-  @classmethod
-  def email_uniqueness(cls, user):
-    check = cls.users_gsi_email.query(
-      user.email,
-      cls.deleteFlag == False
-    )
-    check = [ele for ele in check]
-    if len(check) == 0:
-      return True
-    else:
-      if user.id == check[0].id:
-        return True
-      else:
-        return False
 
   def update(self, actions = [], condition = None):
     actions.append(UserModel.updatedAt.set(datetime.now()))
     super().update(actions, condition)
 
   def save(self, condition = None):
+    self.before_save()
     self.updatedAt = datetime.now()
     super().save(condition)
+
+  def before_save(self):
+    # validation for name
+    if not self.name:
+      raise InvalidNameError('The name attribute has not to be empty')
+    if not isinstance(self.name, str):
+      raise InvalidNameError('The name attribute has to be string')
+    # validation for phoneNumber
+    if not self.phoneNumber:
+      raise InvalidPhoneNumberError('The phoneNumber attribute has not to be empty')
+    if not isinstance(self.phoneNumber, str):
+      raise InvalidPhoneNumberError('The phoneNumber attribute has to be string')
+    if not re.match(r'^0\d{9,10}$', self.phoneNumber):
+      raise InvalidPhoneNumberError('Invalid phoneNumber')
+    # validation for email
+    if not self.email:
+      raise InvalidEmailError('The email attribute has to be string')
+    if not isinstance(self.email, str):
+      raise InvalidEmailError('The email attribute has not to be empty')
+    if not re.match(r'[A-Za-z0-9\._+]+@[A-Za-z]+\.[A-Za-z]', self.email):
+      raise InvalidEmailError('Invalid email')
+    if self.email_uniqueness():
+      raise InvalidEmailError('This email has been registered')
 
   def logic_delete(self):
     """
@@ -86,15 +95,27 @@ class UserModel(Model):
     """
     actions = [UserModel.deleteFlag.set(True)]
     self.update(actions)
-
-  def validate_email(self):
-    if not re.match(r'[A-Za-z0-9\._+]+@[A-Za-z]+\.[A-Za-z]', self.email):
+  
+  def email_uniqueness(self):
+    check = UserModel.users_gsi_email.query(
+      self.email,
+      UserModel.deleteFlag == False
+    )
+    check = [ele for ele in check]
+    if len(check) == 0:
       return False
     else:
-      return True
+      if self.id == check[0].id:
+        return False
+      else:
+        return True
 
-  def validate_phoneNumber(self):
-    if not re.match(r'^0\d{9,10}$', self.phoneNumber):
-      return False
-    else:
-      return True
+class InvalidNameError(Exception):
+  pass
+
+class InvalidEmailError(Exception):
+  pass
+
+class InvalidPhoneNumberError(Exception):
+  pass
+
