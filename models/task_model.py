@@ -5,7 +5,6 @@ from pynamodb.models import Model
 from pynamodb.attributes import UnicodeAttribute, BooleanAttribute, UTCDateTimeAttribute, UnicodeSetAttribute
 from pynamodb.indexes import GlobalSecondaryIndex, AllProjection
 
-
 class TaskListIdIndex(GlobalSecondaryIndex):
   """
   DynamoDB TaskModel
@@ -17,7 +16,6 @@ class TaskListIdIndex(GlobalSecondaryIndex):
     write_capacity_units = 1
     projection = AllProjection()
   taskListId = UnicodeAttribute(hash_key = True)
-
 
 class TaskModel(Model):
   """
@@ -54,9 +52,9 @@ class TaskModel(Model):
     """
     override: get()
     """
-    task_list = super().get(hash_key, range_key, consistent_read, attributes_to_get)
-    if not task_list['deleteFlag']:
-      return task_list
+    task = super().get(hash_key, range_key, consistent_read, attributes_to_get)
+    if not task.deleteFlag:
+      return task
     else:
       raise cls.DoesNotExist()
 
