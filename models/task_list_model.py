@@ -46,8 +46,21 @@ class TaskListModel(Model):
     super().update(actions, condition)
   
   def save(self, condition = None):
+    self.before_save()
     self.updatedAt = datetime.now()
     super().save(condition)
+
+  def before_save(self):
+    # validation for name
+    if not self.name:
+      raise InvalidNameError('The name attribute has not to be empty')
+    if not isinstance(self.name, str):
+      raise InvalidNameError('The name attribute has to be string')
+    # validation for description
+    if not self.description:
+      raise InvalidDescriptionError('The description attribute has not to be empty')
+    if not isinstance(self.description, str):
+      raise InvalidDescriptionError('The description attribute has to be string')
 
   def logic_delete(self):
     """
@@ -55,5 +68,12 @@ class TaskListModel(Model):
     """
     actions = [TaskListModel.deleteFlag.set(True)]
     self.update(actions)
+
+class InvalidNameError(Exception):
+  pass
+
+class InvalidDescriptionError(Exception):
+  pass
+
 
 

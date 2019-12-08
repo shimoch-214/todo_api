@@ -5,7 +5,7 @@ import sys
 sys.path.append("..")
 import errors
 from errors import build_response
-from models.task_list_model import TaskListModel
+from models.task_list_model import TaskListModel, InvalidNameError, InvalidDescriptionError
 from pynamodb.exceptions import PutError
 
 # logの設定
@@ -33,12 +33,12 @@ def create(event, context):
     # taskListの保存
     try:
       task_list.save()
-    except TypeError as e:
+    except InvalidNameError as e:
       logger.exception(e)
-      raise errors.BadRequest('"name" and "description" attributes are string')
-    except ValueError as e:
+      raise errors.BadRequest(str(e.with_traceback(sys.exc_info()[2])))
+    except InvalidDescriptionError as e:
       logger.exception(e)
-      raise errors.BadRequest('"name" and "description" attributes must not be empty')
+      raise errors.BadRequest(str(e.with_traceback(sys.exc_info()[2])))
     except PutError as e:
       logger.exception(e)
       raise errors.InternalError('Internal server error')
