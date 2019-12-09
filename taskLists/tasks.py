@@ -1,21 +1,12 @@
 import json
 import logging
-import uuid
-from datetime import datetime
-import boto3
-from boto3.dynamodb.conditions import Key, Attr
-from botocore.exceptions import ClientError
 import sys
 sys.path.append("..")
 import errors
 from errors import build_response
-from db_util.client import client
-import os
-
-# tableの取得
-dynamodb = client()
-task_lists_table = dynamodb.Table(os.environ['taskListsTable'])
-tasks_table = dynamodb.Table(os.environ['tasksTable'])
+from models.task_list_model import TaskListModel
+from models.task_model import TaskModel
+from pynamodb.exceptions import QueryError
 
 # logの設定
 logger = logging.getLogger()
@@ -33,27 +24,19 @@ def tasks(event, context):
 
     # taskListが存在するか
     try:
-      task_list = task_lists_table.query(
-        FilterExpression = Attr('deleteFlag').eq(False),
-        KeyConditionExpression = Key('id').eq(task_list_id)
-      )
-    except ClientError as e:
-      logger.error(e.response)
-      raise errors.InternalError('Internal server error')
-    if task_list['Count'] == 0:
-      raise errors.NotFound('The requested tasklist does not exist')
+      task_list = TaskListModel.get(task_list_id)
+    except TaskListModel.DoesNotExist as e:
+      logger.exception(e)
+      raise errors.NotFound('The taskList does not exist')
 
-    # taskの取得
+    # tasksの取得
     try:
-      tasks = tasks_table.query(
-        IndexName = 'tasks_gsi_taskListId',
-        FilterExpression = Attr('deleteFlag').eq(False),
-        ProjectionExpression = 'id, #nm, description, userIds, createdAt, updatedAt',
-        ExpressionAttributeNames = {'#nm': 'name'},
-        KeyConditionExpression = Key('taskListId').eq(task_list_id)
-      )['Items']
-    except ClientError as e:
-      logger.error(e)
+      tasks = TaskModel.tasks_gsi_taskListId.query(
+        task_list_id,
+        TaskModel.deleteFlag == False
+      )
+    except QueryError as e:
+      logger.exception(e)
       raise errors.InternalError('Internal server error')
 
     return {
@@ -66,35 +49,19 @@ def tasks(event, context):
         {
           'statusCode': 200,
           'taskList': task_list_id,
-          'tasks': tasks
+          'tasks': [dict(task) for task in tasks]
         }
       )
     }
   
   except errors.BadRequest as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 400)
 
   except errors.NotFound as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 404)
 
   except errors.InternalError as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 500)
-  
-  except Exception as e:
-    logger.error(e)
-    return {
-      'statusCode': 500,
-      'headers': {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
-      },
-      'body': json.dumps(
-        {
-          'statusCode': 500,
-          'errorMessage': 'Internal server error'
-        }
-      )
-    }

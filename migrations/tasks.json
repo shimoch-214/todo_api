@@ -5,10 +5,7 @@
     "description": "this is task1",
     "taskListId": "1",
     "done": false,
-    "userIds": [
-      "1",
-      "2"
-    ],
+    "userIds": [],
     "createdAt": "2019-12-05 11:54:39",
     "updatedAt": "2019-12-05 11:54:39",
     "deleteFlag": false
@@ -19,9 +16,7 @@
     "description": "this is task2",
     "taskListId": "2",
     "done": false,
-    "userIds": [
-      "1"
-    ],
+    "userIds": [],
     "createdAt": "2019-12-05 11:54:39",
     "updatedAt": "2019-12-05 11:54:39",
     "deleteFlag": false
