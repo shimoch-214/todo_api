@@ -75,18 +75,18 @@ def update(event, context):
     }
 
   except errors.BadRequest as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 400)
 
   except errors.NotFound as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 404)
 
   except errors.UnprocessableEntity as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 409)
   
   except errors.InternalError as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 500)
 

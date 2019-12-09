@@ -1,10 +1,11 @@
 import os
 import uuid
 from datetime import datetime
+import re
 from pynamodb.models import Model
 from pynamodb.attributes import UnicodeAttribute, BooleanAttribute, UTCDateTimeAttribute
 from pynamodb.indexes import GlobalSecondaryIndex, AllProjection
-import re
+import models.task_model
 
 class EmailIndex(GlobalSecondaryIndex):
   """
@@ -109,6 +110,14 @@ class UserModel(Model):
         return False
       else:
         return True
+  
+  def get_tasks(self):
+    tasks = models.task_model.TaskModel.scan(
+      (models.task_model.TaskModel.userIds.contains(self.id)) &
+      (models.task_model.TaskModel.deleteFlag == False)
+    )
+    return tasks
+
 
 class InvalidNameError(Exception):
   pass

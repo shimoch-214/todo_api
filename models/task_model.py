@@ -4,8 +4,8 @@ from datetime import datetime
 from pynamodb.models import Model
 from pynamodb.attributes import UnicodeAttribute, BooleanAttribute, UTCDateTimeAttribute, UnicodeSetAttribute
 from pynamodb.indexes import GlobalSecondaryIndex, AllProjection
-from models.user_model import UserModel
-from models.task_list_model import TaskListModel
+import models.user_model
+import models.task_list_model
 
 class TaskListIdIndex(GlobalSecondaryIndex):
   """
@@ -87,7 +87,7 @@ class TaskModel(Model):
       raise InvalidTaskListError('The taskListId attribute has to be string')
     try:
       self.get_task_list()
-    except TaskListModel.DoesNotExist:
+    except models.task_list_model.TaskListModel.DoesNotExist:
       raise InvalidTaskListError('The taskList does not exist')
     # validation for userIds
     if not (isinstance(self.userIds, list) or isinstance(self.userIds, set)):
@@ -98,17 +98,17 @@ class TaskModel(Model):
           raise InvalidUserError('The userIds contains only strings')
     try:
       self.get_users()
-    except UserModel.DoesNotExist:
+    except models.user_model.UserModel.DoesNotExist:
       raise InvalidUserError('The userIds contains a invalid userId')
 
   def get_task_list(self):
-    task_list = TaskListModel.get(self.taskListId)
+    task_list = models.task_list_model.TaskListModel.get(self.taskListId)
     return task_list
 
   def get_users(self):
     users = []
     for user_id in self.userIds:
-      user = UserModel.get(user_id)
+      user = models.user_model.UserModel.get(user_id)
       users.append(user)
     return users
 
@@ -130,8 +130,8 @@ class TaskModel(Model):
     user_ids = set(user_ids)
     for user_id in user_ids:
       try:
-        UserModel.get(user_id)
-      except UserModel.DoesNotExist:
+        models.user_model.UserModel.get(user_id)
+      except models.user_model.UserModel.DoesNotExist:
         raise InvalidUserError('The userIds contains a invalid userId')
     if flag:
       actions = [TaskModel.userIds.add(user_ids)]

@@ -1,21 +1,12 @@
 import json
 import logging
-import uuid
-from datetime import datetime
-import boto3
-from boto3.dynamodb.conditions import Key, Attr
-from botocore.exceptions import ClientError
 import sys
 sys.path.append('..')
 import errors
 from errors import build_response
-from db_util.client import client
-import os
-
-# tableの取得
-dynamodb = client()
-users_table = dynamodb.Table(os.environ['usersTable'])
-tasks_table = dynamodb.Table(os.environ['tasksTable'])
+from models.user_model import UserModel
+from models.task_model import TaskModel
+from pynamodb.exceptions import UpdateError, ScanError
 
 # logの設定
 logger = logging.getLogger()
@@ -32,52 +23,36 @@ def delete(event, context):
       raise errors.BadRequest('Bad request')
     user_id = event['pathParameters']['id']
 
-    # userの削除
+    # userの取得
     try:
-      users_table.update_item(
-        Key = {
-          'id': user_id
-        },
-        UpdateExpression = 'set deleteFlag = :f',
-        ConditionExpression = 'deleteFlag = :now',
-        ExpressionAttributeValues = {
-          ':f': True,
-          ':now': False
-        }
-      )
-    except ClientError as e:
-      logger.error(e.response)
-      if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
-        raise errors.NotFound('This user does not exist')
-      else:
-        raise errors.InternalError('Internal server error')
-    
-    # userが参加するtaskのuserIdsからuser_idを削除
-    try:
-      tasks = tasks_table.scan(
-        FilterExpression = Attr('deleteFlag').eq(False) & Attr('userIds').contains(user_id),
-        ProjectionExpression = 'id, userIds'
-      )['Items']
-    except ClientError as e:
-      logger.error(e.response)
-      raise errors.InternalError
+      user = UserModel.get(user_id)
+    except UserModel.DoesNotExist:
+      raise errors.NotFound('The user does not exist')
 
+    # userが参加するtaskの取得
+    try:
+      tasks = user.get_tasks()
+    except ScanError as e:
+      logger.exception(e)
+      raise errors.InternalError('Internal server error')
+
+    # userが参加するtaskのuserIdsからuser_idを削除
     for task in tasks:
-      task['userIds'] = list(set(task['userIds']) - {user_id})
       try:
-        tasks_table.update_item(
-          Key = {
-            'id': task['id']
-          },
-          UpdateExpression = 'set userIds = :ui',
-          ExpressionAttributeValues = {
-            ':ui': task['userIds']
-          }
+        task.update(
+          [TaskModel.userIds.delete([user_id])]
         )
-      except ClientError as e:
-        logger.error(e.response)
+      except UpdateError as e:
+        logger.exception(e)
         raise errors.InternalError('Internal server error')
     
+    # userを削除
+    try:
+      user.logic_delete()
+    except UpdateError as e:
+      logger.exception(e)
+      raise errors.InternalError('Internal server error')
+
     return {
       'statusCode': 200,
       'headers': {
@@ -92,30 +67,14 @@ def delete(event, context):
     }
 
   except errors.BadRequest as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 400)
 
   except errors.NotFound as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 404)
 
   except errors.InternalError as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 500)
-  
-  except Exception as e:
-    logger.error(e)
-    return {
-      'statusCode': 500,
-      'headers': {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
-      },
-      'body': json.dumps(
-        {
-          'statusCode': 500,
-          'errorMessage': 'Internal server error'
-        }
-      )
-    }
 
