@@ -1,20 +1,11 @@
 import json
 import logging
-import uuid
-from datetime import datetime
-import boto3
-from boto3.dynamodb.conditions import Key, Attr
-from botocore.exceptions import ClientError
 import sys
 sys.path.append("..")
 import errors
 from errors import build_response
-from db_util.client import client
-import os
-
-# tableの取得
-dynamodb = client()
-tasks_table = dynamodb.Table(os.environ['tasksTable'])
+from models.task_model import TaskModel
+from pynamodb.exceptions import UpdateError
 
 # logの設定
 logger = logging.getLogger()
@@ -30,24 +21,18 @@ def delete(event, context):
       raise errors.BadRequest('Bad request')
     task_id = event['pathParameters']['id']
 
+    # taskの取得
     try:
-      tasks_table.update_item(
-        Key = {
-          'id': task_id
-        },
-        UpdateExpression = 'set deleteFlag = :f',
-        ConditionExpression = 'deleteFlag = :now',
-        ExpressionAttributeValues = {
-          ':f': True,
-          ':now': False
-        }
-      )
-    except ClientError as e:
-      logger.error(e.response)
-      if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
-        raise errors.NotFound('The requested task does not exist')
-      else:
-        raise errors.InternalError('Internal server error')
+      task = TaskModel.get(task_id)
+    except TaskModel.DoesNotExist:
+      raise errors.NotFound('The task does not exist')
+
+    # taskの削除
+    try:
+      task.logic_delete()
+    except UpdateError as e:
+      logger.exception(e)
+      raise errors.InternalError('Internal server error')
     
     return {
       'statusCode': 200,
@@ -63,30 +48,15 @@ def delete(event, context):
     }
   
   except errors.BadRequest as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 400)
 
   except errors.NotFound as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 404)
 
   except errors.InternalError as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 500)
-  
-  except Exception as e:
-    logger.error(e)
-    return {
-      'statusCode': 500,
-      'headers': {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
-      },
-      'body': json.dumps(
-        {
-          'statusCode': 500,
-          'errorMessage': 'Internal server error'
-        }
-      )
-    }
+
 

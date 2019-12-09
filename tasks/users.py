@@ -1,21 +1,11 @@
 import json
 import logging
-import uuid
-from datetime import datetime
-import boto3
-from boto3.dynamodb.conditions import Key, Attr
-from botocore.exceptions import ClientError
 import sys
 sys.path.append('..')
 import errors
 from errors import build_response
-from db_util.client import client
-import os
-
-# tableの取得
-dynamodb = client()
-users_table = dynamodb.Table(os.environ['usersTable'])
-tasks_table = dynamodb.Table(os.environ['tasksTable'])
+from models.task_model import TaskModel, InvalidUserError
+from models.user_model import UserModel
 
 # logの設定
 logger = logging.getLogger()
@@ -33,26 +23,16 @@ def users(event, context):
 
     # taskの取得
     try:
-      task = tasks_table.query(
-        FilterExpression = Attr('deleteFlag').eq(False),
-        KeyConditionExpression = Key('id').eq(task_id)
-      )
-    except ClientError as e:
-      logger.info(e.response)
-      raise errors.InternalError('Internal server error')
-    if task['Count'] == 0:
-      raise errors.NotFound('This task does not exist')
-    
+      task = TaskModel.get(task_id)
+    except TaskModel.DoesNotExist:
+      raise errors.NotFound('The task does not exist')
+    if not task.userIds:
+      task.userIds = []
     # usersの取得
     try:
-      users = []
-      for user_id in task['Items'][0]['userIds']:
-        user = users_table.get_item(Key = {'id': user_id})['Item']
-        if not user['deleteFlag']:
-          del user['deleteFlag']
-          users.append(user)
-    except ClientError as e:
-      logger.info(e.response)
+      users = task.get_users()
+    except UserModel.DoesNotExist as e:
+      logger.exception(e)
       raise errors.InternalError('Internal server error')
 
 
@@ -66,7 +46,7 @@ def users(event, context):
           {
             'statusCode': 200,
             'taskId': task_id,
-            'users': users
+            'users': [dict(user) for user in users]
           }
         )
       }
@@ -82,19 +62,3 @@ def users(event, context):
   except errors.InternalError as e:
     logger.error(e)
     return build_response(e, 500)
-  
-  except Exception as e:
-    logger.error(e)
-    return {
-      'statusCode': 500,
-      'headers': {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
-      },
-      'body': json.dumps(
-        {
-          'statusCode': 500,
-          'errorMessage': 'Internal server error'
-        }
-      )
-    }

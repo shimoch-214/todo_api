@@ -1,21 +1,12 @@
 import json
 import logging
-import uuid
-from datetime import datetime
-import boto3
-from boto3.dynamodb.conditions import Key, Attr
-from botocore.exceptions import ClientError
 import sys
 sys.path.append("..")
 import errors
 from errors import build_response
-from db_util.client import client
+from models.task_model import TaskModel
+from pynamodb.exceptions import UpdateError
 import re
-import os
-
-# tableの取得
-dynamodb = client()
-tasks_table = dynamodb.Table(os.environ['tasksTable'])
 
 # logの設定
 logger = logging.getLogger()
@@ -30,30 +21,23 @@ def done_undone(event, context):
 
     # done or undone で ture or false
     if re.match('.*/done$', event['resource']):
-      check = True
+      flag = True
     else:
-      check = False
+      flag = False
+
+    # taskを取得
+    try:
+      task = TaskModel.get(task_id)
+    except TaskModel.DoesNotExist:
+      raise errors.NotFound('The task does not exist')
 
     # taskを更新
     try:
-      tasks_table.update_item(
-        Key = {
-          'id': task_id
-        },
-        UpdateExpression = 'set done = :d',
-        ConditionExpression = 'deleteFlag = :flag',
-        ExpressionAttributeValues = {
-          ':d': check,
-          ':flag': False
-        }
-      )
-    except ClientError as e:
-      logger.error(e.response)
-      if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
-        raise errors.NotFound('The requested task does not exist')
-      else:
-        raise errors.InternalError('Internal server error')
-    
+      task.status_update(flag)
+    except UpdateError as e:
+      logger.exception(e)
+      raise errors.InternalError('Internal server error')
+
     return {
       'statusCode': 200,
       'headers': {
@@ -62,36 +46,21 @@ def done_undone(event, context):
       },
       'body': json.dumps(
         {
-          'statusCode': 200
+          'statusCode': 200,
+          'task': dict(task)
         }
       )
     }
   
   except errors.BadRequest as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 400)
 
   except errors.NotFound as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 404)
 
   except errors.InternalError as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 500)
-  
-  except Exception as e:
-    logger.error(e)
-    return {
-      'statusCode': 500,
-      'headers': {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
-      },
-      'body': json.dumps(
-        {
-          'statusCode': 500,
-          'errorMessage': 'Internal server error'
-        }
-      )
-    }
 

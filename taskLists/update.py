@@ -50,7 +50,6 @@ def update(event, context):
     except PutError as e:
       logger.exception(e)
       raise errors.InternalError('Internal server error')
-      raise errors.InternalError('Internal server error')
       
     return {
       'statusCode': 200,

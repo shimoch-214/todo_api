@@ -4,6 +4,8 @@ from datetime import datetime
 from pynamodb.models import Model
 from pynamodb.attributes import UnicodeAttribute, BooleanAttribute, UTCDateTimeAttribute, UnicodeSetAttribute
 from pynamodb.indexes import GlobalSecondaryIndex, AllProjection
+from models.user_model import UserModel
+from models.task_list_model import TaskListModel
 
 class TaskListIdIndex(GlobalSecondaryIndex):
   """
@@ -63,8 +65,52 @@ class TaskModel(Model):
     super().update(actions, condition)
   
   def save(self, condition = None):
+    self.before_save()
     self.updatedAt = datetime.now()
     super().save(condition)
+
+  def before_save(self):
+    # validation for name
+    if not self.name:
+      raise InvalidNameError('The name attribute has not to be empty')
+    if not isinstance(self.name, str):
+      raise InvalidNameError('The name attribute has to be string')
+    # validation for description
+    if not self.description:
+      raise InvalidDescriptionError('The description attribute has not to be empty')
+    if not isinstance(self.description, str):
+      raise InvalidDescriptionError('The description attribute has to be string')
+    # validation for taskListId
+    if not self.taskListId:
+      raise InvalidTaskListError('The taskListId attribute has not to be empty')
+    if not isinstance(self.taskListId, str):
+      raise InvalidTaskListError('The taskListId attribute has to be string')
+    try:
+      self.get_task_list()
+    except TaskListModel.DoesNotExist:
+      raise InvalidTaskListError('The taskList does not exist')
+    # validation for userIds
+    if not (isinstance(self.userIds, list) or isinstance(self.userIds, set)):
+      raise InvalidUserError('The userIds attribute has to be array')
+    else:
+      for user_id in self.userIds:
+        if not isinstance(user_id, str):
+          raise InvalidUserError('The userIds contains only strings')
+    try:
+      self.get_users()
+    except UserModel.DoesNotExist:
+      raise InvalidUserError('The userIds contains a invalid userId')
+
+  def get_task_list(self):
+    task_list = TaskListModel.get(self.taskListId)
+    return task_list
+
+  def get_users(self):
+    users = []
+    for user_id in self.userIds:
+      user = UserModel.get(user_id)
+      users.append(user)
+    return users
 
   def logic_delete(self):
     """
@@ -72,3 +118,35 @@ class TaskModel(Model):
     """
     actions = [TaskModel.deleteFlag.set(True)]
     self.update(actions)
+
+  def status_update(self, flag):
+    """
+    change done_flag
+    """
+    actions = [TaskModel.done.set(flag)]
+    self.update(actions)
+  
+  def user_ids_update(self, user_ids, flag):
+    user_ids = set(user_ids)
+    for user_id in user_ids:
+      try:
+        UserModel.get(user_id)
+      except UserModel.DoesNotExist:
+        raise InvalidUserError('The userIds contains a invalid userId')
+    if flag:
+      actions = [TaskModel.userIds.add(user_ids)]
+    else:
+      actions = [TaskModel.userIds.delete(user_ids)]
+    self.update(actions)
+
+class InvalidNameError(Exception):
+  pass
+
+class InvalidDescriptionError(Exception):
+  pass
+
+class InvalidTaskListError(Exception):
+  pass
+
+class InvalidUserError(Exception):
+  pass

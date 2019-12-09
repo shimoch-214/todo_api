@@ -9,14 +9,9 @@ import sys
 sys.path.append("..")
 import errors
 from errors import build_response
-from db_util.client import client
+from models.task_model import TaskModel, InvalidUserError
+from pynamodb.exceptions import UpdateError
 import re
-import os
-
-# tableの取得
-dynamodb = client()
-tasks_table = dynamodb.Table(os.environ['tasksTable'])
-users_table = dynamodb.Table(os.environ['usersTable'])
 
 # logの設定
 logger = logging.getLogger()
@@ -39,60 +34,31 @@ def add_remove(event, context):
     else:
       if type(data['userIds']) != list:
         raise errors.BadRequest('"userIds" attribute must be array')
-    # dataにupdatedAtを追加
-    data['updatedAt'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     task_id = event['pathParameters']['id']
+    user_ids = data['userIds']
 
-    # userIdsに含まれるuserが存在しているか
-    for user_id in set(data['userIds']):
-      try:
-        user = users_table.query(
-          FilterExpression = Attr('deleteFlag').eq(False),
-          KeyConditionExpression = Key('id').eq(user_id)
-        )
-      except ClientError as e:
-        logger.error(e.response)
-        raise errors.InternalError('Internal server error')
-      if user['Count'] == 0:
-        raise errors.BadRequest('The requested user does not exist (userId: {})'.format(user_id))
-
-    # 既存のuserIdsを取得
+    # taskの取得
     try:
-      task = tasks_table.query(
-        FilterExpression = Attr('deleteFlag').eq(False),
-        KeyConditionExpression = Key('id').eq(task_id)
-      )
-    except ClientError as e:
-      logger.error(e.response)
-      raise errors.InternalError('Internal server error')
-    if task['Count'] == 0:
-      raise errors.NotFound('The requested task does not exist')
-    old_user_ids = set(task['Items'][0]['userIds'])
+      task = TaskModel.get(task_id)
+    except TaskModel.DoesNotExist:
+      raise errors.NotFound('The task does not exist')
 
-    # add or removeで和集合 or 差集合
+    # add or remove
     if re.match('.*/add$', event['resource']):
-      new_user_ids = list(old_user_ids | set(data['userIds']))
+      flag = True
     else:
-      new_user_ids = list(old_user_ids - set(data['userIds']))
+      flag = False
 
     # taskのuserIdsを更新
     try:
-      result = tasks_table.update_item(
-        Key = {
-          'id': task_id
-        },
-        UpdateExpression = 'set userIds = :new',
-        ExpressionAttributeValues = {
-          ':new': new_user_ids
-        },
-        ReturnValues = 'UPDATED_NEW'
-      )
-    except ClientError as e:
-      logger.error(e.response)
-      if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
-        raise errors.NotFound('The requested task does not exist')
-      else:
-        raise errors.InternalError('Internal server error')
+      task.user_ids_update(user_ids, flag)
+    except InvalidUserError as e:
+      logger.exception(e)
+      raise errors.NotFound(str(e.with_traceback(sys.exc_info()[2])))
+    except UpdateError as e:
+      logger.exception(e)
+      raise errors.InternalError('Internal server error')
+    task = TaskModel.get(task_id)
 
     return {
       'statusCode': 200,
@@ -103,25 +69,25 @@ def add_remove(event, context):
       'body': json.dumps(
         {
           'statusCode': 200,
-          'task': result['Attributes']
+          'task': dict(task)
         }
       )    
     }
 
   except errors.BadRequest as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 400)
 
   except errors.NotFound as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 404)
   
   except errors.InternalError as e:
-    logger.error(e)
+    logger.exception(e)
     return build_response(e, 500)
 
   except Exception as e:
-    logger.error(e)
+    logger.exception(e)
     return {
       'statusCode': 500,
       'headers': {
