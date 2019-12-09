@@ -9,7 +9,7 @@ serverless frameworkを利用した簡易的なtodoアプリ用のapiです。
 
 - 実装
   - serverless framework v1.58
-  - python 3.6
+  - python 3.7
 
 ## Installation
 

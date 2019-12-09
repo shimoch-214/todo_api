@@ -10,10 +10,11 @@ class TaskListModel(Model):
   """
   class Meta():
     table_name = os.environ['taskListsTable']
-    if os.environ['IS_LOCAL']:
+    if 'IS_LOCAL' in os.environ:
       host = 'http://localhost:8000'
     else:
-      host = 'https://dynamodb.{}.amazonaws.com'.format(os.environ['AWS_DEFAULT_REGION'])
+      region = os.environ['AWS_REGION']
+      host = 'https://dynamodb.{}.amazonaws.com'.format(region)
   id = UnicodeAttribute(hash_key = True)
   name = UnicodeAttribute()
   description = UnicodeAttribute()
