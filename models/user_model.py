@@ -55,6 +55,7 @@ class UserModel(Model):
   password = UnicodeAttribute()
   createdAt = UTCDateTimeAttribute(default = datetime.now())
   updatedAt = UTCDateTimeAttribute(default = datetime.now())
+  lastLogin = UTCDateTimeAttribute(default = datetime.now())
   deleteFlag = BooleanAttribute(default = False)
   
   def __iter__(self):
@@ -146,7 +147,7 @@ class UserModel(Model):
       raise InvalidPasswordError('password is longer than 8')
     hash = hashlib.sha256()
     hash.update(self.password.encode() + self.email.encode())
-    return hash.hexdigest()
+    self.password = hash.hexdigest()
 
   def create_token(self):
     self.userToken = secrets.token_hex()

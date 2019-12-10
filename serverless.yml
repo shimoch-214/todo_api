@@ -47,6 +47,13 @@ functions:
           path: users
           method: post
           cors: true
+  user_login:
+    handler: users/login.login
+    events:
+      - http:
+          path: users/login
+          method: post
+          cors: true
   user_update:
     handler: users/update.update
     events:
