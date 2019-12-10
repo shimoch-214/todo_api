@@ -13,9 +13,9 @@ def auth_token(event, context):
   try:
     token = event['authorizationToken']
   except Exception:
-    return auth_response('No Token', 'Deny', resource)
+    return failed_response(resource)
   if not token:
-    return auth_response('No Token', 'Deny', resource)
+    return failed_response(resource)
 
   token_registered = [_ for _ in UserModel.users_gsi_userToken.query(
     token,
@@ -24,11 +24,11 @@ def auth_token(event, context):
 
   if token_registered:
     token_registered = token_registered[0]
-    return auth_response(token_registered.id, 'Allow', resource)
+    return successed_response(token_registered.id, resource)
   else:
-    return auth_response('Invaid Token', 'Deny', resource)
+    return failed_response(resource)
 
-def auth_response(principal_id, effect, resource):
+def successed_response(principal_id, resource):
   return {
     "principalId" : principal_id,
     "policyDocument" : {
@@ -36,12 +36,30 @@ def auth_response(principal_id, effect, resource):
       "Statement" : [
         {
           "Action": "*",
-          "Effect": effect,
+          "Effect": 'Allow',
           "Resource": resource  
         }
       ]
     },
     "context": {
       "authorizedUserId": principal_id
+    }
+  }
+
+def failed_response(resource):
+  return {
+    "principalId" : 'failed',
+    "policyDocument" : {
+      "Version" : "2012-10-17",
+      "Statement" : [
+        {
+          "Action": "*",
+          "Effect": 'Deny',
+          "Resource": resource  
+        }
+      ]
+    },
+    "context": {
+      'message': 'access denied'
     }
   }

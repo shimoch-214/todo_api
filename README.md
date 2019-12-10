@@ -4,12 +4,15 @@ serverless frameworkを利用した簡易的なtodoアプリ用のapiです。
 
 - 構成
   - AWS APIGateway
+    - Lambda Proxy
+    - Authorizer
   - AWS DynamoDB
   - AWS Lambda
 
 - 実装
   - serverless framework v1.58
   - python 3.7
+    - pynamodb
 
 ## Installation
 
@@ -37,12 +40,15 @@ $ sls deploy
 
 - Attributes
   - id(PK HASH): string
-  - email(GSI HASH): string
+  - email(GSI1 HASH): string
+  - userToken(GSI2 HASH): string
+  - expiry: string
   - name: string
-  - email: string
   - phoneNumber: string
+  - password: string
   - createdAt: string
   - updatedAt: string
+  - lastLogin: string
   - deleteFlag: bool
 
 ### tasksTable
@@ -75,22 +81,38 @@ $ sls deploy
 ユーザーの作成。
 
 ```
-$ curl -X POST https://https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/users --data '{"name": "user1", "email": "example1@foo.com", "phoneNumber": "08011112222"}'
+$ curl -X POST https://https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/users --data '{"name": "user1", "email": "example1@foo.com", "phoneNumber": "08011112222", "password": "12345678"}'
 ```
 
 required attributes
 - name
 - email
 - phoneNumber
+- password(8文字以上))
+
+登録完了後のレスポンスヘッダーに"access-token"が含まれています。user/login以外へのリクエストヘッダーには"Authorization={token}"を含めてください。
+
+### User_Login
+
+ユーザーのログイン
+
+```
+$ curl -X POST https://https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/users --data '{"email": "example1@foo.com", "password": "12345678"}'
+```
+
+ログイン完了後のレスポンスヘッダーに"access-token"が含まれています。user/login以外へのリクエストヘッダーには"Authorization={token}"を含めてください。
+
 
 ### User_Update
 
 ユーザーの更新。
-更新対象のattributeは"name", "email", および"phoneNumber"です。
+更新対象のattributeはname, email, およびphoneNumberです。
 
 ```
-curl -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/users/{user_id} --data '{"name": "user2", "email": "example2@foo.com"}'
+curl -H 'Authorization: xxxxx' -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/users/{user_id} --data '{"name": "user2", "email": "example2@foo.com"}'
 ```
+
+user_idとtokenに紐づくidを照合します。照合できなかった場合、status:403で拒否されます。
 
 
 ### User_Delete
@@ -99,15 +121,17 @@ curl -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/users/{
 論理削除で実装しています。"deleteFlag"をfalseからtrueに変更します。また参加しているタスクの"userIds"より自身のidを削除します。
 
 ```
-curl -X DELETE https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/users/{user_id}
+curl -H 'Authorization: xxxxx' -X DELETE https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/users/{user_id}
 ```
+
+user_idとtokenに紐づくidを照合します。照合できなかった場合、status:403で拒否されます。
 
 ### User_tasks_tasklists
 
 ユーザーの参加するタスク一覧およびタスクリスト一覧を取得。
 
 ```
-curl https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/users/{user_id}/tasks_tasklists
+curl -H 'Authorization: xxxxx' https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/users/{user_id}/tasks_tasklists
 ```
 
 example output
@@ -149,7 +173,7 @@ example output
 タスクの作成。
 
 ```
-$ curl -X POST https://https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks --data '{"name": "task1", "description": "this is task1"}'
+$ curl -H 'Authorization: xxxxx' -X POST https://https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks --data '{"name": "task1", "description": "this is task1"}'
 ```
 
 required attributes
@@ -164,7 +188,7 @@ required attributes
 更新対象のattributeは"name"および"description"です。
 
 ```
-curl -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{task_id} --data '{"name": "task2", "description": "This is task2"}'
+curl -H 'Authorization: xxxxx' -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{task_id} --data '{"name": "task2", "description": "This is task2"}'
 ```
 
 ### Task_Add
@@ -173,7 +197,7 @@ curl -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{
 "userIds"(array)に与えられたuserIdsを追加します。
 
 ```
-curl -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{task_id}/add --data '{"userIds": ["abcd1234","dcba4321"]}'
+curl -H 'Authorization: xxxxx' -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{task_id}/add --data '{"userIds": ["abcd1234","dcba4321"]}'
 ```
 
 ### Task_Remove
@@ -183,7 +207,7 @@ curl -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{
 
 
 ```
-curl -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{task_id}/remove --data '{"userIds": ["abcd1234","dcba4321"]}'
+curl -H 'Authorization: xxxxx' -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{task_id}/remove --data '{"userIds": ["abcd1234","dcba4321"]}'
 ```
 
 ### Task_Done
@@ -192,7 +216,7 @@ curl -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{
 "done"をfalseからtrueに変更します。
 
 ```
-curl -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{task_id}/done
+curl -H 'Authorization: xxxxx' -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{task_id}/done
 ```
 
 ### Task_Undone
@@ -201,7 +225,7 @@ curl -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{
 "done"をtrueらfalseに変更します。
 
 ```
-curl -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{task_id}/undone
+curl -H 'Authorization: xxxxx' -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{task_id}/undone
 ```
 
 ### Task_Delete
@@ -210,7 +234,7 @@ curl -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{
 論理削除で実装しています。"deleteFlag"をfalseからtrueに変更します。
 
 ```
-curl -X DELETE https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{task_id}
+curl -H 'Authorization: xxxxx' -X DELETE https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{task_id}
 ```
 
 ### Task_Users
@@ -218,7 +242,7 @@ curl -X DELETE https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/
 タスクに参加するユーザー一覧を取得。
 
 ```
-curl https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{task_id}/users
+curl -H 'Authorization: xxxxx' https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks/{task_id}/users
 ```
 
 example output
@@ -231,6 +255,7 @@ example output
       "phoneNumber": "08011112222",
       "updatedAt": "2019-12-05 12:21:50",
       "createdAt": "2019-12-05 12:21:50",
+      "lastLogin": "2019-12-10T22:44:14",
       "id": "abcd1234",
       "email": "example1@foo.com",
       "name": "user1"
@@ -244,7 +269,7 @@ example output
 タスクリストの作成。
 
 ```
-$ curl -X POST https://https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasklists --data '{"name": "tasklist1", "description": "this is tasklist1"}'
+$ curl -H 'Authorization: xxxxx' -X POST https://https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasklists --data '{"name": "tasklist1", "description": "this is tasklist1"}'
 ```
 
 required attributes
@@ -257,7 +282,7 @@ required attributes
 更新対象のattributeは"name"および"description"です。
 
 ```
-curl -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasklists/{tasklist_id} --data '{"name": "tasklist2", "description": "This is tasklist2"}'
+curl-H 'Authorization: xxxxx' -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasklists/{tasklist_id} --data '{"name": "tasklist2", "description": "This is tasklist2"}'
 ```
 
 ### TaskList_Delete
@@ -266,7 +291,7 @@ curl -X PATCH https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasklis
 論理削除で実装しています。"deleteFlag"をfalseからtrueに変更します。
 
 ```
-curl -X DELETE https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasklists/{tasklists_id}
+curl-H 'Authorization: xxxxx' -X DELETE https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasklists/{tasklists_id}
 ```
 
 ### TaskList_Index
@@ -274,7 +299,7 @@ curl -X DELETE https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/taskli
 タスクリストを全件取得。
 
 ```
-curl https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasklists
+curl -H 'Authorization: xxxxx' https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasklists
 ```
 
 ### TaskList_Tasks
@@ -282,7 +307,7 @@ curl https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasklists
 タスクリストに属するタスクを全件取得。
 
 ```
-curl https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasklists/{tasklist_id}/tasks
+curl -H 'Authorization: xxxxx' https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasklists/{tasklist_id}/tasks
 ```
 
 example output
