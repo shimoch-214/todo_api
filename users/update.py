@@ -28,6 +28,10 @@ def update(event, context):
       raise errors.BadRequest('Bad request')
     user_id = event['pathParameters']['id']
 
+    # user_idがauthorized_userのものか検証
+    if user_id != event['requestContext']['authorizer']['authorizedUserId']:
+      raise errors.ForbiddenError('Access denied')
+
     # userが存在するか
     try:
       user = UserModel.get(user_id)
@@ -77,6 +81,10 @@ def update(event, context):
   except errors.BadRequest as e:
     logger.exception(e)
     return build_response(e, 400)
+
+  except errors.ForbiddenError as e:
+    logger.exception(e)
+    return build_response(e, 403)
 
   except errors.NotFound as e:
     logger.exception(e)

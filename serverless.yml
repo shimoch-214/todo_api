@@ -61,6 +61,7 @@ functions:
           path: users/{id}
           method: patch
           cors: true
+          authorizer: authorizerFunc
   user_delete:
     handler: users/delete.delete
     events:
@@ -89,6 +90,7 @@ functions:
           path: tasklists
           method: get
           cors: true
+          authorizer: authorizerFunc
   taskList_update:
     handler: taskLists/update.update
     events:
@@ -166,6 +168,9 @@ functions:
           path: tasks/{id}/users
           method: get
           cors: true
+  authorizerFunc:
+    handler: auth/auth_token.auth_token
+    
 # DynamoDB settings
 resources:
   Resources:
