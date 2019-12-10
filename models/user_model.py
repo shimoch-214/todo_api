@@ -1,10 +1,12 @@
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
+import hashlib, binascii
+import secrets
 from pynamodb.models import Model
 from pynamodb.attributes import UnicodeAttribute, BooleanAttribute, UTCDateTimeAttribute
-from pynamodb.indexes import GlobalSecondaryIndex, AllProjection
+from pynamodb.indexes import GlobalSecondaryIndex, AllProjection, IncludeProjection
 import models.task_model
 
 class EmailIndex(GlobalSecondaryIndex):
@@ -18,6 +20,18 @@ class EmailIndex(GlobalSecondaryIndex):
     write_capacity_units = 1
     projection = AllProjection()
   email = UnicodeAttribute(hash_key = True)
+
+class UserTokonIndex(GlobalSecondaryIndex):
+  """
+  DynamoDB UserModel
+  GSI userToken: HASH
+  """
+  class Meta():
+    index_name = 'users_gsi_userToken'
+    read_capacity_units = 1
+    write_capacity_units = 1
+    projection = IncludeProjection(['exipry', 'id'])
+  userToken = UnicodeAttribute(hash_key = True)
 
 class UserModel(Model):
   """
@@ -33,15 +47,19 @@ class UserModel(Model):
   id = UnicodeAttribute(hash_key = True)
   email = UnicodeAttribute()
   users_gsi_email = EmailIndex()
+  userToken = UnicodeAttribute(null = True)
+  users_gsi_userToken = UserTokonIndex()
   name = UnicodeAttribute()
   phoneNumber = UnicodeAttribute()
+  expiry = UTCDateTimeAttribute(null = True)
+  password = UnicodeAttribute()
   createdAt = UTCDateTimeAttribute(default = datetime.now())
   updatedAt = UTCDateTimeAttribute(default = datetime.now())
   deleteFlag = BooleanAttribute(default = False)
   
   def __iter__(self):
     for name, attr in self.get_attributes().items():
-      if name != 'deleteFlag':
+      if name not in ['deleteFlag', 'password', 'userToken', 'expiry']:
         yield name, attr.serialize(getattr(self, name))
 
   @classmethod
@@ -119,8 +137,29 @@ class UserModel(Model):
     )
     return tasks
 
+  def hash_password(self):
+    if not self.password:
+      raise InvalidPasswordError('no password')
+    if not isinstance(self.password, str):
+      raise InvalidPasswordError('password must be string')
+    if len(self.password) < 8:
+      raise InvalidPasswordError('password is longer than 8')
+    hash = hashlib.sha256()
+    hash.update(self.password.encode() + self.email.encode())
+    return hash.hexdigest()
+
+  def create_token(self):
+    self.userToken = secrets.token_hex()
+    self.expiry = datetime.now() + timedelta(weeks = 2)
+  
+  def get_expiry(self):
+    return self.get_attributes()['expiry'].serialize(self.expiry)
+
 
 class InvalidNameError(Exception):
+  pass
+
+class InvalidPasswordError(Exception):
   pass
 
 class InvalidEmailError(Exception):

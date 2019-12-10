@@ -11,6 +11,7 @@ provider:
   stage: ${opt:stage, self:custom.defaultStage}
   region: ap-northeast-1
   timeout: 10
+  memorySize: 128
   environment:
     usersTable: ${self:service}-users-${self:provider.stage}
     tasksTable: ${self:service}-tasks-${self:provider.stage}
@@ -28,7 +29,7 @@ provider:
         - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.usersTable}"
         - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.tasksTable}"
         - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.taskListsTable}"
-        - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.usersTable}/*"
+        - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.usersTable}/index/*"
         - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.tasksTable}/*"
 
 package:
@@ -173,6 +174,9 @@ resources:
           -
             AttributeName: email
             AttributeType: S
+          -
+            AttributeName: userToken
+            AttributeType: S
         KeySchema:
           -
             AttributeName: id
@@ -189,6 +193,20 @@ resources:
                 KeyType: HASH
             Projection:
               ProjectionType: ALL
+            ProvisionedThroughput:
+                ReadCapacityUnits: 1
+                WriteCapacityUnits: 1
+          -
+            IndexName: users_gsi_userToken
+            KeySchema:
+              -
+                AttributeName: userToken
+                KeyType: HASH
+            Projection:
+              ProjectionType: INCLUDE
+              NonKeyAttributes:
+                - expiry
+                - id
             ProvisionedThroughput:
                 ReadCapacityUnits: 1
                 WriteCapacityUnits: 1

@@ -5,7 +5,10 @@ import sys
 sys.path.append("..")
 import errors
 from errors import build_response
-from models.user_model import UserModel, InvalidPhoneNumberError, InvalidEmailError, InvalidNameError
+from models.user_model import (
+  UserModel, InvalidPhoneNumberError, InvalidEmailError,
+  InvalidNameError, InvalidPasswordError
+)
 from pynamodb.exceptions import PutError
 
 # logの設定
@@ -29,8 +32,19 @@ def create(event, context):
       id = str(uuid.uuid1()),
       name = body['name'],
       email = body['email'],
-      phoneNumber = body['phoneNumber']
+      phoneNumber = body['phoneNumber'],
+      password = body['password']
     )
+
+    # passwordのhash化
+    try:
+      user.hash_password()
+    except InvalidPasswordError as e:
+      logger.exception(e)
+      raise errors.BadRequest(str(e.with_traceback(sys.exc_info()[2])))
+
+    # tokenの作成
+    user.create_token()
 
     # userの保存
     try:
@@ -55,6 +69,8 @@ def create(event, context):
       'statusCode': 200,
       'headers': {
         'Access-Control-Allow-Origin': '*',
+        'access-token': user.userToken,
+        'expiry': user.get_expiry(),
         'Content-Type': 'application/json'
       },
       'body': json.dumps(
@@ -79,6 +95,6 @@ def create(event, context):
 
 # validations
 def validate_attributes(body):
-  if "name" not in body or "email" not in body or "phoneNumber" not in body:
-    raise errors.BadRequest('"name", "email" and "phoneNumber" attributes are indispensable')
+  if "name" not in body or "email" not in body or "phoneNumber" not in body or "password" not in body:
+    raise errors.BadRequest('"name", "email","phoneNumber" and "password" attributes are indispensable')
 
