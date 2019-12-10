@@ -23,6 +23,10 @@ def delete(event, context):
       raise errors.BadRequest('Bad request')
     user_id = event['pathParameters']['id']
 
+    # user_idがauthorized_userのものか検証
+    if user_id != event['requestContext']['authorizer']['authorizedUserId']:
+      raise errors.ForbiddenError('Access denied')
+
     # userの取得
     try:
       user = UserModel.get(user_id)
