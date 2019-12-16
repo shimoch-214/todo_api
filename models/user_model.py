@@ -114,7 +114,11 @@ class UserModel(Model):
     """
     change deleteFlag to True
     """
-    actions = [UserModel.deleteFlag.set(True)]
+    actions = [
+      UserModel.deleteFlag.set(True),
+      UserModel.userToken.remove(),
+      UserModel.expiry.remove()
+    ]
     self.update(actions)
   
   def email_uniqueness(self):

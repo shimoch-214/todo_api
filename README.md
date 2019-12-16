@@ -173,7 +173,7 @@ example output
 タスクの作成。
 
 ```
-$ curl -H 'Authorization: xxxxx' -X POST https://https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks --data '{"name": "task1", "description": "this is task1"}'
+$ curl -H 'Authorization: xxxxx' -X POST https://https://xxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/tasks --data '{"name": "task1", "description": "this is task1", "taskListId": "1234abcd"}'
 ```
 
 required attributes

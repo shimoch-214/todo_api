@@ -35,7 +35,7 @@ def successed_response(principal_id, resource):
       "Version" : "2012-10-17",
       "Statement" : [
         {
-          "Action": "*",
+          "Action": 'execute-api:Invoke',
           "Effect": 'Allow',
           "Resource": resource  
         }
