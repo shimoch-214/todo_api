@@ -28,7 +28,7 @@ provider:
         - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.usersTable}"
         - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.tasksTable}"
         - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.taskListsTable}"
-        - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.usersTable}/*"
+        - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.usersTable}/index/*"
         - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.tasksTable}/*"
 
 package:
@@ -46,6 +46,13 @@ functions:
           path: users
           method: post
           cors: true
+  user_login:
+    handler: users/login.login
+    events:
+      - http:
+          path: users/login
+          method: post
+          cors: true
   user_update:
     handler: users/update.update
     events:
@@ -53,6 +60,7 @@ functions:
           path: users/{id}
           method: patch
           cors: true
+          authorizer: authorizerFunc
   user_delete:
     handler: users/delete.delete
     events:
@@ -60,6 +68,7 @@ functions:
           path: users/{id}
           method: delete
           cors: true
+          authorizer: authorizerFunc
   user_tasks_taskLists:
     handler: users/tasks_taskLists.tasks_taskLists
     events:
@@ -67,6 +76,7 @@ functions:
           path: users/{id}/tasks_tasklists
           method: get
           cors: true
+          authorizer: authorizerFunc
   taskList_create:
     handler: taskLists/create.create
     events:
@@ -74,6 +84,7 @@ functions:
           path: tasklists
           method: post
           cors: true
+          authorizer: authorizerFunc
   taskList_index:
     handler: taskLists/index.index
     events:
@@ -81,6 +92,7 @@ functions:
           path: tasklists
           method: get
           cors: true
+          authorizer: authorizerFunc
   taskList_update:
     handler: taskLists/update.update
     events:
@@ -88,6 +100,7 @@ functions:
           path: tasklists/{id}
           method: patch
           cors: true
+          authorizer: authorizerFunc
   taskList_delete:
     handler: taskLists/delete.delete
     events:
@@ -95,6 +108,7 @@ functions:
           path: tasklists/{id}
           method: delete
           cors: true
+          authorizer: authorizerFunc
   taskList_tasks:
     handler: taskLists/tasks.tasks
     events:
@@ -102,6 +116,7 @@ functions:
           path: tasklists/{id}/tasks
           method: get
           cors: true
+          authorizer: authorizerFunc
   task_create:
     handler: tasks/create.create
     events:
@@ -109,6 +124,7 @@ functions:
           path: tasks
           method: post
           cors: true
+          authorizer: authorizerFunc
   task_update:
     handler: tasks/update.update
     events:
@@ -116,6 +132,7 @@ functions:
           path: tasks/{id}
           method: patch
           cors: true
+          authorizer: authorizerFunc
   task_add:
     handler: tasks/add_remove.add_remove
     events:
@@ -123,6 +140,7 @@ functions:
           path: tasks/{id}/add
           method: patch
           cors: true
+          authorizer: authorizerFunc
   task_remove:
     handler: tasks/add_remove.add_remove
     events:
@@ -130,6 +148,7 @@ functions:
           path: tasks/{id}/remove
           method: patch
           cors: true
+          authorizer: authorizerFunc
   task_done:
     handler: tasks/done_undone.done_undone
     events:
@@ -137,6 +156,7 @@ functions:
           path: tasks/{id}/done
           method: patch
           cors: true
+          authorizer: authorizerFunc
   task_undone:
     handler: tasks/done_undone.done_undone
     events:
@@ -144,6 +164,7 @@ functions:
           path: tasks/{id}/undone
           method: patch
           cors: true
+          authorizer: authorizerFunc
   task_delete:
     handler: tasks/delete.delete
     events:
@@ -151,6 +172,7 @@ functions:
           path: tasks/{id}
           method: delete
           cors: true
+          authorizer: authorizerFunc
   task_users:
     handler: tasks/users.users
     events:
@@ -158,6 +180,10 @@ functions:
           path: tasks/{id}/users
           method: get
           cors: true
+          authorizer: authorizerFunc
+  authorizerFunc:
+    handler: auth/auth_token.auth_token
+
 # DynamoDB settings
 resources:
   Resources:
@@ -172,6 +198,9 @@ resources:
             AttributeType: S
           -
             AttributeName: email
+            AttributeType: S
+          -
+            AttributeName: userToken
             AttributeType: S
         KeySchema:
           -
@@ -189,6 +218,20 @@ resources:
                 KeyType: HASH
             Projection:
               ProjectionType: ALL
+            ProvisionedThroughput:
+                ReadCapacityUnits: 1
+                WriteCapacityUnits: 1
+          -
+            IndexName: users_gsi_userToken
+            KeySchema:
+              -
+                AttributeName: userToken
+                KeyType: HASH
+            Projection:
+              ProjectionType: INCLUDE
+              NonKeyAttributes:
+                - expiry
+                - id
             ProvisionedThroughput:
                 ReadCapacityUnits: 1
                 WriteCapacityUnits: 1

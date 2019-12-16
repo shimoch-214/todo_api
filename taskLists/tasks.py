@@ -16,6 +16,8 @@ def tasks(event, context):
   """
   taskListに紐づくtask一覧の取得
   """
+  logger.info(event)
+  logger.info(context)
   try:
     logger.info(event)
     if not event['pathParameters']:

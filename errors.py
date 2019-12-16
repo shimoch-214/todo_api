@@ -29,6 +29,13 @@ class InternalError(Exception):
   """
   pass
 
+class ForbiddenError(Exception):
+  """
+  statusCode 403
+  リソースへの権限なし
+  """
+  pass
+
 def build_response(e, code):
   return {
     'statusCode': code,
